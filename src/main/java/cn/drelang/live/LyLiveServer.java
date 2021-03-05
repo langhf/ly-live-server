@@ -1,10 +1,14 @@
 package cn.drelang.live;
 
 import cn.drelang.live.server.http.HttpServer;
+import cn.drelang.live.server.rtmp.RtmpServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 import java.io.File;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  *
@@ -14,8 +18,10 @@ import java.io.File;
 
 public class LyLiveServer {
     public static void main(String[] args) {
+        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         readConfig();
-        new HttpServer().start(LiveConfig.INSTANCE.getHttpPort());
+        executor.execute(() -> new HttpServer().start(LiveConfig.INSTANCE.getHttpPort()));
+        executor.execute(() -> new RtmpServer().start(LiveConfig.INSTANCE.getRtmpPort()));
     }
 
     private static void readConfig() {
