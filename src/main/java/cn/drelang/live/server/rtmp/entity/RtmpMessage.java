@@ -9,13 +9,13 @@ import lombok.Data;
  */
 
 @Data
-public class Chunk {
+public class RtmpMessage {
 
-    private ChunkHeader header;
+    private RtmpHeader header;
 
-    private ChunkBody body;
+    private RtmpBody body;
 
-    public Chunk(ChunkHeader header, ChunkBody body) {
+    public RtmpMessage(RtmpHeader header, RtmpBody body) {
         this.header = header;
         this.body = body;
     }

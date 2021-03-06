@@ -1,8 +1,8 @@
 package cn.drelang.live.server.rtmp;
 
-import cn.drelang.live.server.rtmp.entity.Chunk;
-import cn.drelang.live.server.rtmp.entity.ChunkBody;
-import cn.drelang.live.server.rtmp.entity.ChunkHeader;
+import cn.drelang.live.server.rtmp.entity.RtmpMessage;
+import cn.drelang.live.server.rtmp.entity.RtmpBody;
+import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.netty.buffer.ByteBuf;
@@ -35,7 +35,7 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
     /**
      * 管理 stream id
      */
-    public final Cache<Integer, ChunkHeader> STREAM_MANAGER;
+    public final Cache<Integer, RtmpHeader> STREAM_MANAGER;
 
     {
         STREAM_MANAGER = CacheBuilder.newBuilder()
@@ -47,14 +47,14 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        ChunkHeader chunkHeader = readHeader(in);
-        ChunkBody chunkBody = new ChunkBody();
-        byte[] body = new byte[chunkHeader.getMessageLength()];
+        RtmpHeader rtmpHeader = readHeader(in);
+        RtmpBody rtmpBody = new RtmpBody();
+        byte[] body = new byte[rtmpHeader.getMessageLength()];
         in.readBytes(body);
-        chunkBody.setData(body);
+        rtmpBody.setData(body);
 
-        Chunk chunk = new Chunk(chunkHeader, chunkBody);
-        out.add(chunk);
+        RtmpMessage rtmpMessage = new RtmpMessage(rtmpHeader, rtmpBody);
+        out.add(rtmpMessage);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
         log.error("ChunkDecoder error ", cause);
     }
 
-    private ChunkHeader readHeader(ByteBuf in) {
+    private RtmpHeader readHeader(ByteBuf in) {
         byte first = in.readByte();
 
         // 解析 csid
@@ -75,9 +75,9 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
         }
 
         // 从缓存中读取 chunkHeader
-        ChunkHeader header = STREAM_MANAGER.getIfPresent(csid);
+        RtmpHeader header = STREAM_MANAGER.getIfPresent(csid);
         if (header == null) {
-            header = new ChunkHeader();
+            header = new RtmpHeader();
             header.setChannelStreamId(csid);
         }
 
@@ -122,8 +122,6 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
 
         return header;
     }
-
-
 
 }
 

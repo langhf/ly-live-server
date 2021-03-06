@@ -9,7 +9,16 @@ import lombok.Data;
  * @date 2021/3/5 21:48
  */
 @Data
-public class ChunkHeader {
+public class RtmpHeader {
+
+    /** Chunk Header */
+    public static final byte TIMESTAMP_LEN = 3;
+    public static final byte EXTENDED_TIMESTAMP_LEN = 4;
+    public static final byte MESSAGE_LENGTH__LEN = 4;
+    public static final byte MESSAGE_TYPE_LEN = 1;
+    public static final byte MESSAGE_STREAM_ID_LEN = 4;
+
+    public static final int NULL = 0xFFFFFFFF;
 
     //  basic header
     /**

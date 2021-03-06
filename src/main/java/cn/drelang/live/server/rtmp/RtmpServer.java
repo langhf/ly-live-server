@@ -31,12 +31,14 @@ public class RtmpServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
-                            ch.config().setRecvByteBufAllocator(new FixedRecvByteBufAllocator(8192));
+//                            ch.config().setRecvByteBufAllocator(new FixedRecvByteBufAllocator(8192));
                             ChannelPipeline pipeline = ch.pipeline();
 
                             pipeline.addLast(new ConnectionHandler())
                                     .addLast(new HandShakeDecoder())
-                                    .addLast(new ChunkDecoder());
+                                    .addLast(new ChunkDecoder())
+                                    .addLast(new ChunkEncoder())
+                                    .addLast(new CoreRtmpHandler());
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, 128)

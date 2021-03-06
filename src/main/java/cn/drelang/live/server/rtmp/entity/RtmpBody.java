@@ -10,7 +10,13 @@ import lombok.Data;
  */
 
 @Data
-public class ChunkBody {
+public class RtmpBody {
     private byte[] data;
+
+    public RtmpBody() {}
+
+    public RtmpBody(byte[] data) {
+        this.data = data;
+    }
 }
 
