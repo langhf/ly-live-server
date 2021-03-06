@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
+import static cn.drelang.live.util.ByteUtil.convertBytesToInt;
+
 /**
  * 解析 RTMP Chunk, 主要是解析 Header，body数据原封不动传到下一个 handler。
  *
@@ -121,25 +123,7 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
         return header;
     }
 
-    // big endian
-    private int convertBytesToInt(byte[] bytes) {
-        int ret = 0;
-        if (bytes == null || bytes.length < 1) {
-            return ret;
-        }
 
-        if (bytes.length > 4) {
-            throw new RuntimeException("too big for int");
-        }
-
-        for (int i = 0; i < bytes.length; i++) {
-            ret = ret ^ bytes[i];
-            if (i < bytes.length - 1) { // 到达最后一位不用左移
-                ret = ret << 8;
-            }
-        }
-        return ret;
-    }
 
 }
 
