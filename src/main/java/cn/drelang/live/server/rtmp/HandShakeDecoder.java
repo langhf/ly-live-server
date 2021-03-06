@@ -1,9 +1,9 @@
 package cn.drelang.live.server.rtmp;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.bytes.ByteArrayDecoder;
+import io.netty.handler.codec.ByteToMessageDecoder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
@@ -12,11 +12,13 @@ import java.util.List;
 /**
  * 处理握手流程
  *
+ * 不要用 ByteArrayDecoder，可能存在接收时粘包的现象！！！
+ *
  * @author Drelang
  * @date 2021/3/5 19:47
  */
 @Slf4j
-public class HandShakeDecoder extends ByteArrayDecoder {
+public class HandShakeDecoder extends ByteToMessageDecoder {
 
     boolean receivedC0C1;
 
@@ -27,16 +29,27 @@ public class HandShakeDecoder extends ByteArrayDecoder {
 
     byte[] handShake = new byte[C1_LENGTH];
 
+    ByteBuf OUT = Unpooled.buffer(4096);
+
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().flush();
+//        ctx.fireChannelReadComplete();
     }
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+        if (handShakeDone) {
+            ctx.fireChannelRead(in);
+            return ;
+        }
+
         ByteBuf buf = in;
         if (!receivedC0C1) {
-            byte C0 = in.readByte();
+            // 第一次进入，buf 的 cap 为 1024，需要等待 buf 扩容
+            if (buf.readableBytes() < C0_LENGTH + C1_LENGTH) {
+                return ;
+            }
+            byte C0 = buf.readByte();
             if (C0 != 0x03) {
                 ctx.close();
                 return ;
@@ -48,16 +61,16 @@ public class HandShakeDecoder extends ByteArrayDecoder {
             byte[] S1 = new byte[C1_LENGTH];
             byte S0 = C0;
 
-            ByteBufAllocator allocator = ctx.alloc();
-
-            ctx.write(allocator.buffer(C0_LENGTH).writeByte(S0));
-            ctx.write(allocator.buffer(C1_LENGTH).writeBytes(S1));
-            ctx.writeAndFlush(allocator.buffer(C1_LENGTH).writeBytes(S2));
+            OUT.writeByte(S0);
+            OUT.writeBytes(S1);
+            OUT.writeBytes(S2);
+            ctx.writeAndFlush(OUT);
             log.debug("sent S0S1S2");
             handShake = S1;
             receivedC0C1 = true;
         } else {
             byte[] C2 = new byte[C1_LENGTH];
+            buf.readBytes(C2, 0, C1_LENGTH);
             if (!bytesEqual(C2, handShake)) {
                 log.error("unknown C2 {}", Arrays.toString(C2));
                 ctx.close();
@@ -67,6 +80,7 @@ public class HandShakeDecoder extends ByteArrayDecoder {
             ctx.pipeline().remove(this);
             log.debug("handshake done remoteAddress={}", ctx.channel().remoteAddress().toString());
             handShakeDone = true;
+            ctx.flush();
         }
     }
 
