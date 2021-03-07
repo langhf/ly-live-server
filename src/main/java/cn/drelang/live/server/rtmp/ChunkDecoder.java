@@ -1,8 +1,11 @@
 package cn.drelang.live.server.rtmp;
 
+import cn.drelang.live.server.rtmp.amf.AMF0;
 import cn.drelang.live.server.rtmp.entity.RtmpMessage;
 import cn.drelang.live.server.rtmp.entity.RtmpBody;
 import cn.drelang.live.server.rtmp.entity.RtmpHeader;
+import cn.drelang.live.server.rtmp.message.CommandMessage;
+import cn.drelang.live.util.ByteUtil;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.netty.buffer.ByteBuf;
@@ -11,8 +14,9 @@ import io.netty.handler.codec.ReplayingDecoder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Map;
 
-import static cn.drelang.live.util.ByteUtil.convertBytesToInt;
+import static cn.drelang.live.server.rtmp.entity.Constants.*;
 
 /**
  * 解析 RTMP Chunk, 主要是解析 Header，body数据原封不动传到下一个 handler。
@@ -47,14 +51,32 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        RtmpHeader rtmpHeader = readHeader(in);
-        RtmpBody rtmpBody = new RtmpBody();
-        byte[] body = new byte[rtmpHeader.getMessageLength()];
-        in.readBytes(body);
-        rtmpBody.setData(body);
+        RtmpHeader header = readHeader(in);
 
-        RtmpMessage rtmpMessage = new RtmpMessage(rtmpHeader, rtmpBody);
-        out.add(rtmpMessage);
+        switch (header.getMessageTypeId()) {
+            case COMMAND_MESSAGE_AMF0: {
+                // 必须要按照如下读取顺序，即：commandName -> transactionId -> properties
+                CommandMessage commandMessage = CommandMessage.decode4AMF0(in);
+                out.add(new RtmpMessage(header, commandMessage));
+                break;
+            }
+            case AUDIO_MESSAGE: {
+
+            }
+            case VIDEO_MESSAGE: {
+
+            }
+            case METADATA_AMF0: {
+
+            }
+            case SHARED_OBJECT_AMF0: {
+
+            }
+            case AGGREGATE_MESSAGE: {
+
+            }
+
+        }
     }
 
     @Override
@@ -71,7 +93,7 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
             csid = in.readByte() + 64;
         } else if (csid == 1) { // 需要额外两个字节
             in.readBytes(DOUBLE_BYTE);
-            csid = convertBytesToInt(DOUBLE_BYTE) + 64;
+            csid = ByteUtil.convertBytesToInt(DOUBLE_BYTE) + 64;
         }
 
         // 从缓存中读取 chunkHeader
@@ -92,17 +114,17 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
         }
 
         in.readBytes(TRIPLE_BYTE);
-        int timestampDelta = convertBytesToInt(TRIPLE_BYTE);
+        int timestampDelta = ByteUtil.convertBytesToInt(TRIPLE_BYTE);
 
         if (fmt != 2) {
             // fmt = 0, 1 时，都需要读 message length 和 message type id
             in.readBytes(TRIPLE_BYTE);
-            header.setMessageLength(convertBytesToInt(TRIPLE_BYTE));
+            header.setMessageLength(ByteUtil.convertBytesToInt(TRIPLE_BYTE));
             header.setMessageTypeId(in.readByte());
             if (fmt == 0) {
                 // fmt = 0 时，还要读 message stream id
                 in.readBytes(ONE_WORD);
-                header.setMessageStreamId(convertBytesToInt(ONE_WORD));
+                header.setMessageStreamId(ByteUtil.convertBytesToInt(ONE_WORD));
             }
 
             STREAM_MANAGER.put(csid, header);
@@ -111,7 +133,7 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
         // 处理可能的 extended timestamp
         if (timestampDelta == 0xFFFFFF){
             in.readBytes(ONE_WORD);
-            timestampDelta = convertBytesToInt(ONE_WORD);
+            timestampDelta = ByteUtil.convertBytesToInt(ONE_WORD);
         }
 
         if (fmt == 0) { // fmt = 0 时，是决定时间戳

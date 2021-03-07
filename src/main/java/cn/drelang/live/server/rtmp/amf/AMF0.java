@@ -19,7 +19,7 @@ import static cn.drelang.live.server.rtmp.entity.Constants.*;
 public class AMF0 {
 
     /**
-     * 将 AMF0 字节数组解码为 java 可读类型
+     * 将 AMF0 字节数组解码为 java 可读类型，只读取 buf 中的第一个 AMF0 类型
      * @param buf ByteBuf 类型，方面读完顺便移动读指针
      * @return Object 类型，调用方需要进行强制转换
      */
@@ -31,17 +31,12 @@ public class AMF0 {
             case AMF0_BOOLEAN:
                 return buf.readByte() != 0x00;
             case AMF0_STRING:
-                byte[] t = new byte[2];
-                buf.readBytes(t);
-                int len = ByteUtil.convertBytesToInt(t);
-                byte[] s = new byte[len];
-                buf.readBytes(s);
-                return new String(s, StandardCharsets.UTF_8);
+                return decode2ShortString(buf);
             case AMF0_OBJECT:
                 Map<String, Object> map = Maps.newHashMap();
                 while (!findObjectEndMarker(buf)) {
-                    // 对于 key，一定是 String 类型，因此省略了 key 的 marker
-                    String key = (String)decodeAMF0Type(buf);
+                    // 注意，此处略坑！ 对于 key，一定是 String 类型，因此省略了 key 的 marker
+                    String key = decode2ShortString(buf);
                     // value 类型多样
                     Object value = decodeAMF0Type(buf);
                     map.put(key, value);
@@ -71,6 +66,18 @@ public class AMF0 {
             default:
                 return null;
         }
+    }
+
+    /**
+     * 不含 shortString 的 marker，直接从 length 和 content 开始的 buf
+     */
+    private static String decode2ShortString(ByteBuf buf) {
+        byte[] t = new byte[2];
+        buf.readBytes(t);
+        int len = ByteUtil.convertBytesToInt(t);
+        byte[] s = new byte[len];
+        buf.readBytes(s);
+        return new String(s, StandardCharsets.UTF_8);
     }
 
     // 寻找 Object 结束标志  0x000009
@@ -111,7 +118,9 @@ public class AMF0 {
             out.writeByte(AMF0_OBJECT);
             Map<String, Object> map = (Map) in;
             map.forEach((k, v) -> {
-                out.writeBytes(encodeAMF0Type(k));
+                // 同样此处略坑，需要省略 key 的 String marker
+                out.writeBytes(ByteUtil.convertInt2BytesBE(k.length(), 2));
+                out.writeBytes(k.getBytes(StandardCharsets.UTF_8));
                 out.writeBytes(encodeAMF0Type(v));
             });
             out.writeByte(0x00);

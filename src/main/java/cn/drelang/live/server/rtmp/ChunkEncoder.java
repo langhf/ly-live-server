@@ -9,6 +9,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+
 /**
  *
  * @author Drelang
@@ -16,10 +18,15 @@ import lombok.extern.slf4j.Slf4j;
  */
 
 @Slf4j
-public class ChunkEncoder extends MessageToByteEncoder<RtmpMessage> {
+public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
 
     @Override
-    protected void encode(ChannelHandlerContext ctx, RtmpMessage msg, ByteBuf out) throws Exception {
+    protected void encode(ChannelHandlerContext ctx, List<RtmpMessage> messages, ByteBuf out) throws Exception {
+        messages.forEach(msg-> wrapMessage(msg, out));
+        ctx.writeAndFlush(out);
+    }
+
+    private void wrapMessage(RtmpMessage msg, ByteBuf out) {
         RtmpHeader header = msg.getHeader();
         RtmpBody body = msg.getBody();
 
@@ -54,10 +61,7 @@ public class ChunkEncoder extends MessageToByteEncoder<RtmpMessage> {
             }
         }
 
-        out.writeBytes(body.getData());
-        ctx.writeAndFlush(out);
-
-        System.out.println(msg);
+//        out.writeBytes(body.getData());
     }
 
 }
