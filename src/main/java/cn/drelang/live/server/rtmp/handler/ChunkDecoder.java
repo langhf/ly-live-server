@@ -53,11 +53,10 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
 
         switch (header.getMessageTypeId()) {
             case COMMAND_MESSAGE_AMF0: {
-                // 必须要按照如下读取顺序，即：commandName -> transactionId -> properties
                 CommandMessage commandMessage = CommandMessage.decodeCMDNameAndTXID4AMF0(in);
                 String commandName = commandMessage.getCommandName();
                 if (commandName.equals("connect")) {
-                    ConnectMessage connectMessage = (ConnectMessage) commandMessage;
+                    ConnectMessage connectMessage = commandMessage.outputSub(ConnectMessage.class);
                     connectMessage.decodeArguments4AMF0(in);
                     commandMessage = connectMessage;
                 }

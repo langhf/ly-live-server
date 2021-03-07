@@ -1,6 +1,5 @@
 package cn.drelang.live.server.rtmp.message.command;
 
-import cn.drelang.live.server.exception.ClassNotSupportException;
 import cn.drelang.live.server.rtmp.entity.RtmpBody;
 
 /**

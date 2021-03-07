@@ -24,6 +24,11 @@ public class AMF0 {
      * @return Object 类型，调用方需要进行强制转换
      */
     public static Object decodeAMF0Type(ByteBuf buf) {
+        // 对于 ReplayingByteBuf，当 readerIndex == writerIndex 时，readableBytes() 不是返回 0
+        if (buf.readerIndex() == buf.writerIndex()) {
+            return null;
+        }
+
         byte type = buf.readByte();
         switch (type) {
             case AMF0_NUMBER:

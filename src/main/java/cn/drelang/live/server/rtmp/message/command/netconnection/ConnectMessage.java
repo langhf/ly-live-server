@@ -42,12 +42,18 @@ public class ConnectMessage extends CommandMessage {
      */
     private Map<String, Object> information;
 
+    public ConnectMessage() {}
+
+    public ConnectMessage(CommandMessage commandMessage) {
+
+    }
+
     /**
      * 根据字节数组生成一个 CommandMessage
      */
     public ConnectMessage decodeArguments4AMF0(ByteBuf in) {
         // 需要父类先读取命令名和事务id后才能调用此方法
-        assert getCommandName() != null && getTransactionID() != null;
+        assert commandName != null && transactionID != null;
         commandObject = (Map) AMF0.decodeAMF0Type(in);
         optionalUserArguments = (Map) AMF0.decodeAMF0Type(in);
         return this;

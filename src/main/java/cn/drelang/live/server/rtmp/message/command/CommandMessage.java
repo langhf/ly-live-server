@@ -31,7 +31,7 @@ public class CommandMessage extends RtmpCommandMessage {
      * 出站时：
      *  _result or _error; indicates whether the response is result or error.
      */
-    private String commandName;
+    protected String commandName;
 
     /**
      * 事务ID， 进出站都有
@@ -39,7 +39,7 @@ public class CommandMessage extends RtmpCommandMessage {
      * 出站时：
      *
      */
-    private Double transactionID;
+    protected Double transactionID;
 
     /**
      * 出站 channel stream id，协议并没有规定，一般用 3
@@ -60,6 +60,13 @@ public class CommandMessage extends RtmpCommandMessage {
         com.setCommandName((String) AMF0.decodeAMF0Type(in));
         com.setTransactionID((Double) AMF0.decodeAMF0Type(in));
         return com;
+    }
+
+    public <T extends CommandMessage> T outputSub(Class<T> type) throws IllegalAccessException, InstantiationException {
+        T t = type.newInstance();
+        t.setCommandName(commandName);
+        t.setTransactionID(transactionID);
+        return t;
     }
 
     @Override
