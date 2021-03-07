@@ -2,6 +2,7 @@ package cn.drelang.live;
 
 import cn.drelang.live.server.http.HttpServer;
 import cn.drelang.live.server.rtmp.RtmpServer;
+import cn.drelang.live.server.test.TestServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
@@ -20,8 +21,9 @@ public class LyLiveServer {
     public static void main(String[] args) {
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         readConfig();
-        executor.execute(() -> new HttpServer().start(LiveConfig.INSTANCE.getHttpPort()));
+//        executor.execute(() -> new HttpServer().start(LiveConfig.INSTANCE.getHttpPort()));
         executor.execute(() -> new RtmpServer().start(LiveConfig.INSTANCE.getRtmpPort()));
+//        executor.execute(() -> new TestServer().start(LiveConfig.INSTANCE.getRtmpPort()));
     }
 
     private static void readConfig() {

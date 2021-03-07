@@ -1,5 +1,7 @@
 package cn.drelang.live.util;
 
+import java.nio.ByteBuffer;
+
 /**
  * TODO:
  *
@@ -69,5 +71,33 @@ public class ByteUtil {
         }
         return ret;
     }
+
+    public static byte[] asByteArray(double in) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(Double.BYTES);
+        byteBuffer.putDouble(in);
+        return byteBuffer.array();
+    }
+
+    public static byte[] mergeByteArray(byte[]... in) {
+        int count = 0;
+        for(byte[] i : in) {
+            count += i.length;
+        }
+        byte[] out = new byte[count];
+        int idx = 0;
+        for(byte[] i : in) {
+            System.arraycopy(i, 0, out, idx, i.length);
+            idx += i.length;
+        }
+        return out;
+    }
+
+    public static void main(String[] args) {
+        byte[] b1 = new byte[]{0x00, 0x01, 0x02};
+        byte[] b2 = new byte[]{0x00, 0x01, 0x02};
+        byte[] b3 = new byte[]{0x00, 0x01, 0x02};
+        mergeByteArray(b1, b2, b3);
+    }
+
 }
 
