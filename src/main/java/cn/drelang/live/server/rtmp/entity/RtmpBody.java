@@ -9,6 +9,8 @@ package cn.drelang.live.server.rtmp.entity;
  * @date 2021/3/5 21:59
  */
 
-public class RtmpBody {
+public interface RtmpBody {
+
+    byte[] messageToBytes();
 }
 

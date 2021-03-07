@@ -1,5 +1,7 @@
 package cn.drelang.live.server.rtmp.entity;
 
+import cn.drelang.live.server.rtmp.message.command.CommandMessage;
+import cn.drelang.live.server.rtmp.message.protocol.ProtocolControlMessage;
 import lombok.Data;
 
 /**
@@ -52,6 +54,23 @@ public class RtmpHeader {
      * 消息 stream id
      */
     private int messageStreamId;
+
+    /**
+     * 根据要发送的 RtmpBody 类型，生成 RtmpHeader
+     */
+    public static RtmpHeader createOutHeaderByMessage(RtmpBody body) {
+        RtmpHeader header = new RtmpHeader();
+        if (body instanceof ProtocolControlMessage) {
+            ProtocolControlMessage m = (ProtocolControlMessage) body;
+            header.setFmt((byte) 0);
+            header.setChannelStreamId(m.outChunkStreamId());
+            header.setTimeStamp(0);
+            header.setMessageLength(m.outMessageLength());
+            header.setMessageTypeId(m.outMessageTypeId());
+            header.setMessageStreamId(m.outMessageStreamId());
+        }
+        return header;
+    }
 
 }
 
