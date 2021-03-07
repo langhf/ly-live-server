@@ -1,4 +1,4 @@
-package cn.drelang.live.server.rtmp;
+package cn.drelang.live.server.rtmp.handler;
 
 import cn.drelang.live.server.rtmp.entity.RtmpBody;
 import cn.drelang.live.server.rtmp.entity.RtmpHeader;
@@ -28,8 +28,8 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
 
     private void wrapMessage(RtmpMessage msg, ByteBuf out) {
         RtmpHeader header = msg.getHeader();
-        RtmpBody body = msg.getBody();
 
+        // wrap header
         byte fmt = header.getFmt();
         byte first = (byte) (fmt << 6);
         int csid = header.getChannelStreamId();
@@ -61,7 +61,8 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
             }
         }
 
-//        out.writeBytes(body.getData());
+        // wrap body
+        out.writeBytes(msg.getBody().messageToBytes());
     }
 
 }

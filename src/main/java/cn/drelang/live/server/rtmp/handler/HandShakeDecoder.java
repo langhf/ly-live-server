@@ -1,4 +1,4 @@
-package cn.drelang.live.server.rtmp;
+package cn.drelang.live.server.rtmp.handler;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;

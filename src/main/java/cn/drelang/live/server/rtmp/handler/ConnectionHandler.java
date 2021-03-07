@@ -1,4 +1,4 @@
-package cn.drelang.live.server.rtmp;
+package cn.drelang.live.server.rtmp.handler;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;

@@ -1,7 +1,9 @@
-package cn.drelang.live.server.rtmp;
+package cn.drelang.live.server.rtmp.handler;
 
 import cn.drelang.live.server.rtmp.entity.*;
-import cn.drelang.live.server.rtmp.message.CommandMessage;
+import cn.drelang.live.server.rtmp.message.command.CommandMessage;
+import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
+import cn.drelang.live.server.rtmp.message.protocol.WindowAcknowledgementMessage;
 import cn.drelang.live.util.ByteUtil;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -32,6 +34,11 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         RtmpHeader header = msg.getHeader();
         switch (header.getMessageTypeId()) {
             case COMMAND_MESSAGE_AMF0:
+                CommandMessage commandMessage = (CommandMessage) msg.getBody();
+                String commandName = commandMessage.getCommandName();
+                if (commandName.equals("connect")) {
+                    handleConnect(ctx);
+                }
 //                AMFCommandMessage commandMessage = AMF0.decodeCommandMessage(msg.getBody().getData());
 //                handleByCommand(ctx, commandMessage);
         }
@@ -55,30 +62,18 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 //
 //    }
 //
-//    private void handleConnect(ChannelHandlerContext ctx) {
-//        List<RtmpMessage> outs = Lists.newArrayList();
-//        // Window Acknowledgement Size
-//        RtmpHeader wasHeader = new RtmpHeader();
-//        wasHeader.setFmt((byte) 0);
-//        wasHeader.setChannelStreamId(PROTOCOL_CONTROL_MESSAGE_CSID);
-//        wasHeader.setMessageStreamId(PROTOCOL_CONTROL_MESSAGE_MSID);
-//        wasHeader.setMessageTypeId(ACKNOWLEDGEMENT_WINDOW_SIZE);
-//        wasHeader.setTimeStamp(0);
-//        wasHeader.setMessageLength(4);
-//
-//        RtmpBody wasBody = new RtmpBody();
-//        wasBody.setData(ByteUtil.convertInt2BytesBE(2500_000, 4));
-//
-//        outs.add(new RtmpMessage(wasHeader, wasBody));
-//
-//        // Set Peer Bandwidth
-//        RtmpHeader spbHeader = new RtmpHeader();
-//        spbHeader.setFmt((byte)0);
-//        spbHeader.setChannelStreamId(PROTOCOL_CONTROL_MESSAGE_CSID);
-//        spbHeader.setMessageStreamId(PROTOCOL_CONTROL_MESSAGE_MSID);
-//        spbHeader.setMessageTypeId(SET_PEER_BANDWIDTH);
-//        spbHeader.setTimeStamp(0);
-//        spbHeader.setMessageLength(5);
+    private void handleConnect(ChannelHandlerContext ctx) {
+        List<RtmpMessage> outs = Lists.newArrayList();
+        // Window Acknowledgement Size
+        WindowAcknowledgementMessage wasMessage = new WindowAcknowledgementMessage(2500_000);
+        RtmpHeader wasHeader = RtmpHeader.createOutHeaderByMessage(wasMessage);
+
+        outs.add(new RtmpMessage(wasHeader, wasMessage));
+
+        // Set Peer Bandwidth
+        SetPeerBandwidthMessage spbMessage = new SetPeerBandwidthMessage(2500_000, (byte) 1);
+        RtmpHeader spbHeader = RtmpHeader.createOutHeaderByMessage(spbMessage);
+        outs.add(new RtmpMessage(spbHeader, spbMessage));
 //
 //        TEMP.writeBytes(ByteUtil.convertInt2BytesBE(2500_000, 4));
 //        TEMP.writeByte(0x01);
@@ -94,9 +89,9 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 //        Map<String, String> objectMap = Maps.newHashMap();
 ////        objectMap
 //        RtmpHeader resultHeader = new RtmpHeader();
-//
-//        ctx.write(outs);
-//    }
+
+        ctx.write(outs);
+    }
 
     private void handleCreateStream(ChannelHandlerContext ctx) {
 

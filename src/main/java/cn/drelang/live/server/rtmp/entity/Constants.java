@@ -51,5 +51,8 @@ public class Constants {
     /** RTMP */
     public static final byte PROTOCOL_CONTROL_MESSAGE_CSID = 0x02;  // channel stream id
     public static final byte PROTOCOL_CONTROL_MESSAGE_MSID = 0x00;  // message stream id
+
+    /** Protocol Control Message */
+
 }
 
