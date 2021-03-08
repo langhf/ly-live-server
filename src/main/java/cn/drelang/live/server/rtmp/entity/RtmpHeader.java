@@ -1,6 +1,8 @@
 package cn.drelang.live.server.rtmp.entity;
 
+import cn.drelang.live.server.rtmp.message.command.AudioMessage;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
+import cn.drelang.live.server.rtmp.message.command.RtmpCommandMessage;
 import cn.drelang.live.server.rtmp.message.protocol.ProtocolControlMessage;
 import lombok.Data;
 
@@ -66,8 +68,14 @@ public class RtmpHeader {
             header.setChannelStreamId(m.outChunkStreamId());
             header.setTimeStamp(0);
             header.setMessageLength(m.outMessageLength());
-            header.setMessageTypeId(m.outMessageTypeId());
+            header.setMessageTypeId(m.outBoundMessageTypeId());
             header.setMessageStreamId(m.outMessageStreamId());
+        } else if (body instanceof RtmpCommandMessage) {
+            if (body instanceof CommandMessage) {
+
+            } else if (body instanceof AudioMessage) {
+
+            }
         }
         return header;
     }

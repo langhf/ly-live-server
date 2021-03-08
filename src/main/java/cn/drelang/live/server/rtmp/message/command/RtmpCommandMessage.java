@@ -16,7 +16,7 @@ import cn.drelang.live.server.rtmp.entity.RtmpBody;
  * @date 2021/3/7 18:54
  */
 
-public abstract class RtmpCommandMessage implements RtmpBody {
-    public abstract byte outMessageTypeId();
+public interface RtmpCommandMessage extends RtmpBody {
+
 }
 

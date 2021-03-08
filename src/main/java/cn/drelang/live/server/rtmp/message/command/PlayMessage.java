@@ -1,6 +1,6 @@
 package cn.drelang.live.server.rtmp.message.command;
 
-import cn.drelang.live.server.rtmp.message.command.CommandMessage;
+import io.netty.buffer.ByteBuf;
 
 /**
  * TODO:
@@ -10,5 +10,19 @@ import cn.drelang.live.server.rtmp.message.command.CommandMessage;
  */
 
 public class PlayMessage extends CommandMessage {
+    @Override
+    public byte[] messageToBytes() {
+        return new byte[0];
+    }
+
+    @Override
+    public String toReadableString() {
+        return null;
+    }
+
+    @Override
+    public void continueDecode(ByteBuf in) {
+
+    }
 }
 

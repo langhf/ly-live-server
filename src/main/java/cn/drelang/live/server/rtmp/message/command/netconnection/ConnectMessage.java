@@ -2,6 +2,7 @@ package cn.drelang.live.server.rtmp.message.command.netconnection;
 
 import cn.drelang.live.server.rtmp.amf.AMF0;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
+import cn.drelang.live.util.ByteUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import lombok.Data;
@@ -42,11 +43,12 @@ public class ConnectMessage extends CommandMessage {
      */
     private Map<String, Object> information;
 
+    /**
+     * 原始字节数组
+     */
+    private byte[] rawBytes;
+
     public ConnectMessage() {}
-
-    public ConnectMessage(CommandMessage commandMessage) {
-
-    }
 
     /**
      * 根据字节数组生成一个 CommandMessage
@@ -68,6 +70,29 @@ public class ConnectMessage extends CommandMessage {
         out.writeBytes(AMF0.encodeAMF0Type(in.getTransactionID()));
 //        out.writeBytes(AMF0.encodeAMF0Type(in.getProperties()));
         return out;
+    }
+
+    @Override
+    public byte[] messageToBytes() {
+        if (rawBytes != null) {
+            return rawBytes;
+        }
+        byte[] b1 = AMF0.encodeAMF0Type(commandName);
+        byte[] b2 = AMF0.encodeAMF0Type(transactionID);
+        byte[] b3 = AMF0.encodeAMF0Type(properties);
+        byte[] b4 = AMF0.encodeAMF0Type(information);
+        rawBytes = ByteUtil.mergeByteArray(b1, b2, b3, b4);
+        return rawBytes;
+    }
+
+    @Override
+    public String toReadableString() {
+        return null;
+    }
+
+    @Override
+    public void continueDecode(ByteBuf in) {
+
     }
 }
 

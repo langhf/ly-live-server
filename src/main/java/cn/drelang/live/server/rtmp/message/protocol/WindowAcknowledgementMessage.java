@@ -33,24 +33,23 @@ public class WindowAcknowledgementMessage extends ProtocolControlMessage {
     }
 
     @Override
-    public byte outMessageTypeId() {
+    public byte outBoundMessageTypeId() {
         return Constants.ACKNOWLEDGEMENT_WINDOW_SIZE;
-    }
-
-    @Override
-    public int outMessageLength() {
-        return 4;
-    }
-
-    @Override
-    public String toString() {
-        return super.toString() +
-                "windowSize=" + windowSize;
     }
 
     @Override
     public byte[] messageToBytes() {
         return ByteUtil.convertInt2BytesBE(windowSize, 4);
+    }
+
+    @Override
+    public String toReadableString() {
+        return "WindowAcknowledgementMessage{windowSize=" + windowSize + "}";
+    }
+
+    @Override
+    public int outMessageLength() {
+        return 4;
     }
 }
 

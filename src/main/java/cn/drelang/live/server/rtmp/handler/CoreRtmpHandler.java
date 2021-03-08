@@ -2,6 +2,8 @@ package cn.drelang.live.server.rtmp.handler;
 
 import cn.drelang.live.server.rtmp.entity.*;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
+import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
+import cn.drelang.live.server.rtmp.message.protocol.SetChunkSizeMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
 import cn.drelang.live.server.rtmp.message.protocol.WindowAcknowledgementMessage;
 import cn.drelang.live.util.ByteUtil;
@@ -66,29 +68,45 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         List<RtmpMessage> outs = Lists.newArrayList();
         // Window Acknowledgement Size
         WindowAcknowledgementMessage wasMessage = new WindowAcknowledgementMessage(2500_000);
-        RtmpHeader wasHeader = RtmpHeader.createOutHeaderByMessage(wasMessage);
-
-        outs.add(new RtmpMessage(wasHeader, wasMessage));
+        outs.add(new RtmpMessage(wasMessage.createOutboundHeader(), wasMessage));
 
         // Set Peer Bandwidth
         SetPeerBandwidthMessage spbMessage = new SetPeerBandwidthMessage(2500_000, (byte) 1);
-        RtmpHeader spbHeader = RtmpHeader.createOutHeaderByMessage(spbMessage);
-        outs.add(new RtmpMessage(spbHeader, spbMessage));
-//
-//        TEMP.writeBytes(ByteUtil.convertInt2BytesBE(2500_000, 4));
-//        TEMP.writeByte(0x01);
-//        byte[] spb = new byte[TEMP.readableBytes()];
-//        TEMP.readBytes(spb);
-//        RtmpBody spbBody = new RtmpBody(spb);
-//
-//        outs.add(new RtmpMessage(spbHeader, spbBody));
-//
-//        // _result
-//        String command = "_result";
-//        double transactionId = 1.0;
-//        Map<String, String> objectMap = Maps.newHashMap();
-////        objectMap
-//        RtmpHeader resultHeader = new RtmpHeader();
+        outs.add(new RtmpMessage(spbMessage.createOutboundHeader(), spbMessage));
+
+        // 注意：由于 RTMP 默认的 Chunk Size 为 128，而此处想要发送几个 RTMP 消息，总长度超过了 128，
+        //      因此要让客户端设置新的 Chunk Size，才能让所有的消息发送过去！
+
+        // Set Chunk Size
+        SetChunkSizeMessage scsMessage = new SetChunkSizeMessage(4096);
+        outs.add(new RtmpMessage(scsMessage.createOutboundHeader(), scsMessage));
+
+        // _result
+        Map<String, Object> properties = Maps.newHashMap();
+        properties.put("fmsVer", "FMS/3,0,1,123");
+        properties.put("capabilities", 31.0);
+
+        Map<String, Object> information = Maps.newHashMap();
+        information.put("code", "NetConnection.Connect.Success");
+        information.put("description", "Connection succeeded.");
+        information.put("objectEncoding", 0.0);
+        information.put("level", "status");
+
+        ConnectMessage outCntMsg = new ConnectMessage();
+        outCntMsg.setCommandName("_result");
+        outCntMsg.setTransactionID(1.0);
+        outCntMsg.setProperties(properties);
+        outCntMsg.setInformation(information);
+
+        RtmpHeader header = new RtmpHeader();
+        header.setFmt((byte) 0);
+        header.setTimeStamp(0);
+        header.setMessageLength(outCntMsg.messageToBytes().length);
+        header.setMessageTypeId(outCntMsg.outBoundMessageTypeId());
+        header.setMessageStreamId(outCntMsg.outboundMsid());
+        header.setChannelStreamId(outCntMsg.outboundCsid());
+
+        outs.add(new RtmpMessage(header, outCntMsg));
 
         ctx.write(outs);
     }

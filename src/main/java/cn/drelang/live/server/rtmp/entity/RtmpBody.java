@@ -11,6 +11,19 @@ package cn.drelang.live.server.rtmp.entity;
 
 public interface RtmpBody {
 
+    /**
+     * 出站时的 Message Type Id
+     */
+    byte outBoundMessageTypeId();
+
+    /**
+     * 将消息转换为 rtmp 协议格式的字节数组
+     */
     byte[] messageToBytes();
+
+    /**
+     * 转成人类可读字符串
+     */
+    String toReadableString();
 }
 

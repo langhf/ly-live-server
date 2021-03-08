@@ -31,7 +31,7 @@ public class SetPeerBandwidthMessage extends ProtocolControlMessage{
     }
 
     @Override
-    public byte outMessageTypeId() {
+    public byte outBoundMessageTypeId() {
         return 0x06;
     }
 
@@ -44,6 +44,15 @@ public class SetPeerBandwidthMessage extends ProtocolControlMessage{
     public byte[] messageToBytes() {
         byte[] ackWindowSize = ByteUtil.convertInt2BytesBE(acknowledgementWindowSize, 4);
         return ByteUtil.mergeByteArray(ackWindowSize, new byte[]{limitType});
+    }
+
+    @Override
+    public String toReadableString() {
+        String limit = limitType == 0 ? "Hard" : (limitType == 1 ? "Soft" : "Dynamic");
+        return "SetPeerBandwidthMessage{" +
+                "ackWindowSize=" + acknowledgementWindowSize + "," +
+                "limitType=" + limit +
+                "}";
     }
 }
 

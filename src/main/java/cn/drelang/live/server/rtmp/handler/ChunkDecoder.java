@@ -3,7 +3,6 @@ package cn.drelang.live.server.rtmp.handler;
 import cn.drelang.live.server.rtmp.entity.RtmpMessage;
 import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
-import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
 import cn.drelang.live.util.ByteUtil;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -53,14 +52,7 @@ public class ChunkDecoder extends ReplayingDecoder<Void> {
 
         switch (header.getMessageTypeId()) {
             case COMMAND_MESSAGE_AMF0: {
-                CommandMessage commandMessage = CommandMessage.decodeCMDNameAndTXID4AMF0(in);
-                String commandName = commandMessage.getCommandName();
-                if (commandName.equals("connect")) {
-                    ConnectMessage connectMessage = commandMessage.outputSub(ConnectMessage.class);
-                    connectMessage.decodeArguments4AMF0(in);
-                    commandMessage = connectMessage;
-                }
-                out.add(new RtmpMessage(header, commandMessage));
+                out.add(new RtmpMessage(header, CommandMessage.createInstance(in)));
                 break;
             }
             case AUDIO_MESSAGE: {

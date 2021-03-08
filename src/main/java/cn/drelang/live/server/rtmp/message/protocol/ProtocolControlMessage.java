@@ -1,6 +1,7 @@
 package cn.drelang.live.server.rtmp.message.protocol;
 
 import cn.drelang.live.server.rtmp.entity.RtmpBody;
+import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 
 /**
  * 协议控制消息，括号内为 Message Type Id，包含：
@@ -28,18 +29,31 @@ public abstract class ProtocolControlMessage implements RtmpBody {
         return 0x00;
     }
 
-    public abstract byte outMessageTypeId();
-
+    /**
+     * 出站消息长度
+     */
     public abstract int outMessageLength();
 
-    public abstract byte[] messageToBytes();
+    /**
+     * 对于 Protocol Control Message，Header 比较固定，因此可以抽取出一个公共方法，用来创建出站方向的 header
+     */
+    public RtmpHeader createOutboundHeader() {
+        RtmpHeader header = new RtmpHeader();
+        header.setFmt((byte) 0);
+        header.setChannelStreamId(outChunkStreamId());
+        header.setTimeStamp(0);
+        header.setMessageLength(outMessageLength());
+        header.setMessageTypeId(outBoundMessageTypeId());
+        header.setMessageStreamId(0);
+        return header;
+    }
 
     @Override
     public String toString() {
         return this.getClass().getName() + "{" +
                 "csid=" + outChunkStreamId() + ", " +
                 "msid=" + outMessageStreamId() + ", " +
-                "typeId=" + outMessageTypeId() + ", " +
+                "typeId=" + outBoundMessageTypeId() + ", " +
                 "}";
     }
 

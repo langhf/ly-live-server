@@ -7,15 +7,21 @@ package cn.drelang.live.server.rtmp.message.command;
  * @date 2021/3/7 16:44
  */
 
-public class VideoMessage extends RtmpCommandMessage {
+public class VideoMessage implements RtmpCommandMessage {
+    @Override
+    public byte outBoundMessageTypeId() {
+        return 0x09;
+    }
+
     @Override
     public byte[] messageToBytes() {
         return new byte[0];
     }
 
     @Override
-    public byte outMessageTypeId() {
-        return 0;
+    public String toReadableString() {
+        return null;
     }
+
 }
 
