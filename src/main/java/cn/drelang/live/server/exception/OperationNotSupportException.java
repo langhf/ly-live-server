@@ -6,12 +6,12 @@ package cn.drelang.live.server.exception;
  * @date 2021/3/7 19:44
  */
 
-public class ClassNotSupportException extends RuntimeException{
+public class OperationNotSupportException extends RuntimeException{
 
-    public ClassNotSupportException() {
+    public OperationNotSupportException() {
         super("this class not support, please implement in subclass!");
     }
-    public ClassNotSupportException(String msg) {
+    public OperationNotSupportException(String msg) {
         super(msg);
     }
 }

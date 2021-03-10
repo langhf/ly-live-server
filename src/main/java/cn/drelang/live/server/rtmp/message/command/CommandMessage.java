@@ -2,8 +2,10 @@ package cn.drelang.live.server.rtmp.message.command;
 
 import cn.drelang.live.server.rtmp.amf.AMF0;
 import cn.drelang.live.server.rtmp.entity.Constants;
-import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
+import cn.drelang.live.server.rtmp.message.command.netconnection.CreateStreamMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.FCPublishMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
 import com.google.common.collect.Maps;
 import io.netty.buffer.ByteBuf;
 import lombok.Data;
@@ -31,6 +33,9 @@ public abstract class CommandMessage implements RtmpCommandMessage {
         COMMAND_MAP = Maps.newHashMap();
         COMMAND_MAP.put("connect", ConnectMessage.class);
         COMMAND_MAP.put("play", PlayMessage.class);
+        COMMAND_MAP.put("releaseStream", ReleaseStreamMessage.class);
+        COMMAND_MAP.put("FCPublish", FCPublishMessage.class);
+        COMMAND_MAP.put("createStream", CreateStreamMessage.class);
     }
 
     /**
@@ -52,6 +57,11 @@ public abstract class CommandMessage implements RtmpCommandMessage {
     protected Double transactionID;
 
     /**
+     * Chunk Body 形式的 bytes
+     */
+    private byte[] chunkBodyBytes;
+
+    /**
      * 出站 channel stream id，协议并没有规定，一般用 3
      */
     public byte outboundCsid() {
@@ -69,6 +79,16 @@ public abstract class CommandMessage implements RtmpCommandMessage {
         return Constants.COMMAND_MESSAGE_AMF0;
     }
 
+    @Override
+    public byte[] outMessageToBytes() {
+        if (chunkBodyBytes == null) {   // 类似缓存的用法
+            chunkBodyBytes = composeOutMessageToBytes();
+        }
+        return chunkBodyBytes;
+    }
+
+    public abstract byte[] composeOutMessageToBytes();
+
     /**
      * 获取完整的对象，将剩下没解析的内容解析出来。
      * 已经解析的内容指的是：commandName 和 transactionId
@@ -79,7 +99,7 @@ public abstract class CommandMessage implements RtmpCommandMessage {
     /**
      * 根据传入的数组，创建一个完整的 CommandMessage
      */
-    public static CommandMessage createInstance(ByteBuf in) {
+    public static CommandMessage createInstance(ByteBuf in) throws RuntimeException {
         CommandMessage commandMessage = null;
         String commandName = null;
         try {
@@ -92,6 +112,9 @@ public abstract class CommandMessage implements RtmpCommandMessage {
             commandMessage.setCommandName(commandName);
             commandMessage.setTransactionID((Double) AMF0.decodeAMF0Type(in));
             commandMessage.continueDecode(in);
+//            if (in.readerIndex() != in.writerIndex()) {
+//                throw new RuntimeException("decode command message error, input bytes not enough!");
+//            }
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(e);
         } catch (Exception e) {

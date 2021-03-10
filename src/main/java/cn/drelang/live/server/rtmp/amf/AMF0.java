@@ -131,6 +131,8 @@ public class AMF0 {
             out.writeByte(0x00);
             out.writeByte(0x00);
             out.writeByte(AMF0_OBJECT_END);
+        } else if (in == null) {
+            return new byte[AMF0_NULL];
         } else {
             throw new RuntimeException("Object type not supported Object=" + in.toString());
         }

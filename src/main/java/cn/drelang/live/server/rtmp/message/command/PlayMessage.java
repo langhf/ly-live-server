@@ -10,8 +10,9 @@ import io.netty.buffer.ByteBuf;
  */
 
 public class PlayMessage extends CommandMessage {
+
     @Override
-    public byte[] messageToBytes() {
+    public byte[] composeOutMessageToBytes() {
         return new byte[0];
     }
 

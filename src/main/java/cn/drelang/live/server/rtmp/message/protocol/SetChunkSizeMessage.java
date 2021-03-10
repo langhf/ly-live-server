@@ -24,7 +24,7 @@ public class SetChunkSizeMessage extends ProtocolControlMessage{
     }
 
     @Override
-    public byte[] messageToBytes() {
+    public byte[] outMessageToBytes() {
         return ByteUtil.convertInt2BytesBE(chunkSize, 4);
     }
 

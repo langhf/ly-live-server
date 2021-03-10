@@ -3,10 +3,11 @@ package cn.drelang.live.server.rtmp.handler;
 import cn.drelang.live.server.rtmp.entity.*;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
+import cn.drelang.live.server.rtmp.message.command.netconnection.CreateStreamMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetChunkSizeMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
 import cn.drelang.live.server.rtmp.message.protocol.WindowAcknowledgementMessage;
-import cn.drelang.live.util.ByteUtil;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.netty.buffer.ByteBuf;
@@ -15,6 +16,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +34,11 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 
     ByteBuf TEMP = Unpooled.buffer(1024);
 
+    /**
+     * releaseStream 命令是否通过
+     */
+    private boolean releaseStreamOK;
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, RtmpMessage msg) throws Exception {
         RtmpHeader header = msg.getHeader();
@@ -40,9 +48,11 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
                 String commandName = commandMessage.getCommandName();
                 if (commandName.equals("connect")) {
                     handleConnect(ctx);
+                } else if (commandName.equals("releaseStream")) {
+                    handleReleaseStream(ctx, msg);
+                } else if (commandName.equals("createStream")) {
+                    handleCreateStream(ctx, msg);
                 }
-//                AMFCommandMessage commandMessage = AMF0.decodeCommandMessage(msg.getBody().getData());
-//                handleByCommand(ctx, commandMessage);
         }
 
         System.out.println("ha");
@@ -53,19 +63,8 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         log.error("CoreRtmpHandler error ", cause);
     }
 
-//    private void handleByCommand(ChannelHandlerContext ctx, CommandMessage commandMessage) {
-//        log.debug("handleByCommand {}", commandMessage);
-//        switch (commandMessage.getCommandName()) {
-//            case "connect":
-//                handleConnect(ctx);
-//            case "createStream":
-//                handleCreateStream(ctx);
-//        }
-//
-//    }
-//
     private void handleConnect(ChannelHandlerContext ctx) {
-        List<RtmpMessage> outs = Lists.newArrayList();
+        List<RtmpMessage> outs = new ArrayList<>(4);
         // Window Acknowledgement Size
         WindowAcknowledgementMessage wasMessage = new WindowAcknowledgementMessage(2500_000);
         outs.add(new RtmpMessage(wasMessage.createOutboundHeader(), wasMessage));
@@ -101,7 +100,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         RtmpHeader header = new RtmpHeader();
         header.setFmt((byte) 0);
         header.setTimeStamp(0);
-        header.setMessageLength(outCntMsg.messageToBytes().length);
+        header.setMessageLength(outCntMsg.outMessageToBytes().length);
         header.setMessageTypeId(outCntMsg.outBoundMessageTypeId());
         header.setMessageStreamId(outCntMsg.outboundMsid());
         header.setChannelStreamId(outCntMsg.outboundCsid());
@@ -111,10 +110,44 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         ctx.write(outs);
     }
 
-    private void handleCreateStream(ChannelHandlerContext ctx) {
-
+    private void handleReleaseStream(ChannelHandlerContext ctx, RtmpMessage msg) {
+        ReleaseStreamMessage releaseStreamMessage = (ReleaseStreamMessage) msg.getBody();
+        String channelKey = releaseStreamMessage.getChannelKey();
+        if (channelKey == null || channelKey.equals("")) {
+            log.error("handler releaseStream error channelKey={}", channelKey);
+            ctx.close();
+            return ;
+        }
+        // TODO: 检查 channelKey 是否合法
+        releaseStreamOK = true;
     }
 
+    private void handleCreateStream(ChannelHandlerContext ctx, RtmpMessage msg) {
+        if (!releaseStreamOK) {
+            ctx.close();
+            return ;
+        }
+
+        CreateStreamMessage request = (CreateStreamMessage) msg.getBody();
+
+        CreateStreamMessage response = new CreateStreamMessage();
+        response.setCommandName("_result");
+        response.setTransactionID(request.getTransactionID());
+        response.setOutCommandObject(null);
+        response.setOutStreamId(1);
+
+        RtmpHeader responseHeader = new RtmpHeader();
+        responseHeader.setFmt((byte) 0);
+        responseHeader.setChannelStreamId(3);
+        responseHeader.setTimeStamp(0);
+        responseHeader.setMessageTypeId(response.outBoundMessageTypeId());
+        responseHeader.setMessageStreamId(response.outboundMsid());
+        responseHeader.setMessageLength(response.outMessageToBytes().length);
+
+        List<RtmpMessage> out = new ArrayList<>(Arrays.asList(new RtmpMessage(responseHeader, response)));
+
+        ctx.write(out);
+    }
 
 }
 

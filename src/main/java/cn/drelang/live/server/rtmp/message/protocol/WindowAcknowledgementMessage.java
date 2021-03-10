@@ -38,7 +38,7 @@ public class WindowAcknowledgementMessage extends ProtocolControlMessage {
     }
 
     @Override
-    public byte[] messageToBytes() {
+    public byte[] outMessageToBytes() {
         return ByteUtil.convertInt2BytesBE(windowSize, 4);
     }
 

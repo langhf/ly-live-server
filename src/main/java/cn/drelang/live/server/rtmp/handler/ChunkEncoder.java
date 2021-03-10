@@ -61,7 +61,7 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
         }
 
         // wrap body
-        out.writeBytes(msg.getBody().messageToBytes());
+        out.writeBytes(msg.getBody().outMessageToBytes());
     }
 
 }

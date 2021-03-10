@@ -14,7 +14,7 @@ public class AudioMessage implements RtmpCommandMessage {
     }
 
     @Override
-    public byte[] messageToBytes() {
+    public byte[] outMessageToBytes() {
         return new byte[0];
     }
 

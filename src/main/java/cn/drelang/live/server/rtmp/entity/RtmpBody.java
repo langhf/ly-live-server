@@ -16,10 +16,12 @@ public interface RtmpBody {
      */
     byte outBoundMessageTypeId();
 
+    // inMessageToBytes()
+
     /**
-     * 将消息转换为 rtmp 协议格式的字节数组
+     * 将出站消息转换为 rtmp 协议格式的字节数组
      */
-    byte[] messageToBytes();
+    byte[] outMessageToBytes();
 
     /**
      * 转成人类可读字符串

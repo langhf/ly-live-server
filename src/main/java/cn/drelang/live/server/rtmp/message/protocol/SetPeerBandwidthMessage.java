@@ -41,7 +41,7 @@ public class SetPeerBandwidthMessage extends ProtocolControlMessage{
     }
 
     @Override
-    public byte[] messageToBytes() {
+    public byte[] outMessageToBytes() {
         byte[] ackWindowSize = ByteUtil.convertInt2BytesBE(acknowledgementWindowSize, 4);
         return ByteUtil.mergeByteArray(ackWindowSize, new byte[]{limitType});
     }

@@ -73,16 +73,12 @@ public class ConnectMessage extends CommandMessage {
     }
 
     @Override
-    public byte[] messageToBytes() {
-        if (rawBytes != null) {
-            return rawBytes;
-        }
+    public byte[] composeOutMessageToBytes() {
         byte[] b1 = AMF0.encodeAMF0Type(commandName);
         byte[] b2 = AMF0.encodeAMF0Type(transactionID);
         byte[] b3 = AMF0.encodeAMF0Type(properties);
         byte[] b4 = AMF0.encodeAMF0Type(information);
-        rawBytes = ByteUtil.mergeByteArray(b1, b2, b3, b4);
-        return rawBytes;
+        return ByteUtil.mergeByteArray(b1, b2, b3, b4);
     }
 
     @Override
@@ -92,7 +88,7 @@ public class ConnectMessage extends CommandMessage {
 
     @Override
     public void continueDecode(ByteBuf in) {
-
+        commandObject = (Map) AMF0.decodeAMF0Type(in);
     }
 }
 
