@@ -4,6 +4,8 @@ import cn.drelang.live.server.rtmp.entity.*;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.CreateStreamMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.OnStatusMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.PublishMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetChunkSizeMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
@@ -16,10 +18,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static cn.drelang.live.server.rtmp.entity.Constants.*;
 
@@ -52,6 +51,8 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
                     handleReleaseStream(ctx, msg);
                 } else if (commandName.equals("createStream")) {
                     handleCreateStream(ctx, msg);
+                } else if (commandName.equals("publish")) {
+                    handlePublish(ctx, msg);
                 }
         }
 
@@ -147,6 +148,29 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         List<RtmpMessage> out = new ArrayList<>(Arrays.asList(new RtmpMessage(responseHeader, response)));
 
         ctx.write(out);
+    }
+
+    private void handlePublish(ChannelHandlerContext ctx, RtmpMessage msg) {
+        PublishMessage publishMessage = (PublishMessage) msg.getBody();
+
+        Map<String, Object> infoObject = new HashMap<>(4);
+        infoObject.put("level", "status");
+        infoObject.put("code", "NetStream.Publish.Start");
+        infoObject.put("description", "start publishing");
+
+        OnStatusMessage onStatusMessage = new OnStatusMessage();
+        onStatusMessage.setCommandObject(null);
+        onStatusMessage.setInfoObject(infoObject);
+
+        RtmpHeader responseHeader = new RtmpHeader();
+        responseHeader.setFmt((byte) 0);
+        responseHeader.setChannelStreamId(onStatusMessage.outboundCsid());
+        responseHeader.setTimeStamp(0);
+        responseHeader.setMessageTypeId(onStatusMessage.outBoundMessageTypeId());
+        responseHeader.setMessageStreamId(onStatusMessage.outboundMsid());
+        responseHeader.setMessageLength(onStatusMessage.outMessageToBytes().length);
+
+        ctx.write(Arrays.asList(new RtmpMessage(responseHeader, onStatusMessage)));
     }
 
 }

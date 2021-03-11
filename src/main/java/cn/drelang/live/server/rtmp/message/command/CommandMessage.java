@@ -5,6 +5,7 @@ import cn.drelang.live.server.rtmp.entity.Constants;
 import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.CreateStreamMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.FCPublishMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.PublishMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
 import com.google.common.collect.Maps;
 import io.netty.buffer.ByteBuf;
@@ -36,6 +37,7 @@ public abstract class CommandMessage implements RtmpCommandMessage {
         COMMAND_MAP.put("releaseStream", ReleaseStreamMessage.class);
         COMMAND_MAP.put("FCPublish", FCPublishMessage.class);
         COMMAND_MAP.put("createStream", CreateStreamMessage.class);
+        COMMAND_MAP.put("publish", PublishMessage.class);
     }
 
     /**
@@ -82,6 +84,7 @@ public abstract class CommandMessage implements RtmpCommandMessage {
     @Override
     public byte[] outMessageToBytes() {
         if (chunkBodyBytes == null) {   // 类似缓存的用法
+            // TODO: commandName 和 txid 子类都要 compose 一遍，不如提取到父类统一做一下
             chunkBodyBytes = composeOutMessageToBytes();
         }
         return chunkBodyBytes;
