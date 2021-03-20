@@ -89,6 +89,7 @@ public class ConnectMessage extends CommandMessage {
     @Override
     public void continueDecode(ByteBuf in) {
         commandObject = (Map) AMF0.decodeAMF0Type(in);
+//        optionalUserArguments = (Map) AMF0.decodeAMF0Type(in);
     }
 }
 

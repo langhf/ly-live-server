@@ -40,7 +40,7 @@ public abstract class ProtocolControlMessage implements RtmpBody {
     public RtmpHeader createOutboundHeader() {
         RtmpHeader header = new RtmpHeader();
         header.setFmt((byte) 0);
-        header.setChannelStreamId(outChunkStreamId());
+        header.setChunkStreamId(outChunkStreamId());
         header.setTimeStamp(0);
         header.setMessageLength(outMessageLength());
         header.setMessageTypeId(outBoundMessageTypeId());

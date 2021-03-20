@@ -55,8 +55,29 @@ public class AMF0 {
                 buf.readBytes(ls);
                 return new String(ls, StandardCharsets.UTF_8);
             case AMF0_ECMA_ARRAY:
-                int el = buf.readInt();
-                return null;
+                // 用不到 arrayLen，但是要解析
+                int arrayLen = buf.readInt();
+                Map<String, Object> array = Maps.newHashMap();
+                while (!findObjectEndMarker(buf)) {
+                    // 注意，此处略坑！ 对于 key，一定是 String 类型，因此省略了 key 的 marker
+                    String key = decode2ShortString(buf);
+                    // value 类型多样
+                    Object value = decodeAMF0Type(buf);
+                    array.put(key, value);
+                    if (key.equals("framerate") || key.equals("audiocodecid")) {  // 不知为啥会多出一个 0xC4 还多了个 0x00
+                        buf.skipBytes(1);
+                    }
+                    if (key.equals("filesize")) {
+                        buf.skipBytes(1);
+                        break;
+                    }
+                }
+                // 探测到 Object End 后，需要将读指针向后移动3位
+//                buf.skipBytes(3);
+                ECMAArray ecmaArray = new ECMAArray();
+                ecmaArray.setLength(arrayLen);
+                ecmaArray.setInfo(array);
+                return ecmaArray;
             case AMF0_XML_DOCUMENT:
             case AMF0_MOVIE_CLIP:
             case AMF0_NULL:
@@ -77,9 +98,7 @@ public class AMF0 {
      * 不含 shortString 的 marker，直接从 length 和 content 开始的 buf
      */
     private static String decode2ShortString(ByteBuf buf) {
-        byte[] t = new byte[2];
-        buf.readBytes(t);
-        int len = ByteUtil.convertBytesToInt(t);
+        int len = buf.readUnsignedShort();
         byte[] s = new byte[len];
         buf.readBytes(s);
         return new String(s, StandardCharsets.UTF_8);
@@ -87,9 +106,7 @@ public class AMF0 {
 
     // 寻找 Object 结束标志  0x000009
     private static boolean findObjectEndMarker(ByteBuf buf) {
-        byte[] t = new byte[3];
-        buf.getBytes(buf.readerIndex(), t);
-        return ByteUtil.convertBytesToInt(t) == AMF0_OBJECT_END;
+        return buf.getUnsignedMedium(buf.readerIndex()) == AMF0_OBJECT_END;
     }
 
     /**
@@ -124,6 +141,18 @@ public class AMF0 {
             Map<String, Object> map = (Map) in;
             map.forEach((k, v) -> {
                 // 同样此处略坑，需要省略 key 的 String marker
+                out.writeBytes(ByteUtil.convertInt2BytesBE(k.length(), 2));
+                out.writeBytes(k.getBytes(StandardCharsets.UTF_8));
+                out.writeBytes(encodeAMF0Type(v));
+            });
+            out.writeByte(0x00);
+            out.writeByte(0x00);
+            out.writeByte(AMF0_OBJECT_END);
+        } else if (in instanceof ECMAArray) {
+            out.writeByte(AMF0_ECMA_ARRAY);
+            out.writeBytes(ByteUtil.convertInt2BytesBE(((ECMAArray) in).getLength(), 4));
+            ((ECMAArray) in).getInfo().forEach((k, v) -> {
+                // 省去 String marker
                 out.writeBytes(ByteUtil.convertInt2BytesBE(k.length(), 2));
                 out.writeBytes(k.getBytes(StandardCharsets.UTF_8));
                 out.writeBytes(encodeAMF0Type(v));

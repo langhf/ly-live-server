@@ -4,6 +4,7 @@ import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 import cn.drelang.live.server.rtmp.entity.RtmpMessage;
 import cn.drelang.live.util.ByteUtil;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 
 /**
+ * 统一输出: RtmpMessage -> Bytes
  *
  * @author Drelang
  * @date 2021/3/6 14:58
@@ -21,8 +23,11 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, List<RtmpMessage> messages, ByteBuf out) throws Exception {
-        messages.forEach(msg-> wrapMessage(msg, out));
-        ctx.writeAndFlush(out);
+        ByteBuf r = Unpooled.buffer();
+        for (RtmpMessage message : messages) {
+            wrapMessage(message, r);
+        }
+        ctx.writeAndFlush(r);
     }
 
     private void wrapMessage(RtmpMessage msg, ByteBuf out) {
@@ -31,7 +36,7 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
         // wrap header
         byte fmt = header.getFmt();
         byte first = (byte) (fmt << 6);
-        int csid = header.getChannelStreamId();
+        int csid = header.getChunkStreamId();
         byte[] exCsid = null;
         if (csid <= 63) {
             first ^= csid;
@@ -65,4 +70,3 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
     }
 
 }
-

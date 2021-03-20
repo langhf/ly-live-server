@@ -1,7 +1,9 @@
 package cn.drelang.live.server.rtmp.handler;
 
+import cn.drelang.live.server.rtmp.amf.ECMAArray;
 import cn.drelang.live.server.rtmp.entity.*;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
+import cn.drelang.live.server.rtmp.message.command.DataMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.CreateStreamMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.OnStatusMessage;
@@ -10,10 +12,7 @@ import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessag
 import cn.drelang.live.server.rtmp.message.protocol.SetChunkSizeMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
 import cn.drelang.live.server.rtmp.message.protocol.WindowAcknowledgementMessage;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +22,7 @@ import java.util.*;
 import static cn.drelang.live.server.rtmp.entity.Constants.*;
 
 /**
+ * 核心处理逻辑
  *
  * @author Drelang
  * @date 2021/3/5 19:47
@@ -31,32 +31,69 @@ import static cn.drelang.live.server.rtmp.entity.Constants.*;
 @Slf4j
 public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 
-    ByteBuf TEMP = Unpooled.buffer(1024);
-
     /**
      * releaseStream 命令是否通过
      */
     private boolean releaseStreamOK;
 
+//    @Override
+//    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+//        try {
+//            RtmpMessage m = (RtmpMessage) msg;
+//            channelRead0(ctx, m);
+//        } catch (Exception e) {
+//            log.error("error", e);
+//        }
+//    }
+
+    @Override
+    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+//        ctx.flush();
+        // do nothing
+    }
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, RtmpMessage msg) throws Exception {
         RtmpHeader header = msg.getHeader();
         switch (header.getMessageTypeId()) {
-            case COMMAND_MESSAGE_AMF0:
+            case COMMAND_MESSAGE_AMF0: {
                 CommandMessage commandMessage = (CommandMessage) msg.getBody();
                 String commandName = commandMessage.getCommandName();
-                if (commandName.equals("connect")) {
-                    handleConnect(ctx);
-                } else if (commandName.equals("releaseStream")) {
-                    handleReleaseStream(ctx, msg);
-                } else if (commandName.equals("createStream")) {
-                    handleCreateStream(ctx, msg);
-                } else if (commandName.equals("publish")) {
-                    handlePublish(ctx, msg);
+                switch (commandName) {
+                    case "connect":
+                        handleConnect(ctx);
+                        break;
+                    case "releaseStream":
+                        handleReleaseStream(ctx, msg);
+                        break;
+                    case "createStream":
+                        handleCreateStream(ctx, msg);
+                        break;
+                    case "publish":
+                        handlePublish(ctx, msg);
+                        break;
                 }
+                break;
+            }
+            case METADATA_AMF0: {
+                DataMessage dataMessage = (DataMessage) msg.getBody();
+                ECMAArray ecmaArray = dataMessage.getEcmaArray();
+                break;
+            }
+
         }
 
-        System.out.println("ha");
+        System.out.println(msg.getBody().getClass().getSimpleName());
+    }
+
+    @Override
+    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+
+    }
+
+    @Override
+    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+
     }
 
     @Override
@@ -104,7 +141,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         header.setMessageLength(outCntMsg.outMessageToBytes().length);
         header.setMessageTypeId(outCntMsg.outBoundMessageTypeId());
         header.setMessageStreamId(outCntMsg.outboundMsid());
-        header.setChannelStreamId(outCntMsg.outboundCsid());
+        header.setChunkStreamId(outCntMsg.outboundCsid());
 
         outs.add(new RtmpMessage(header, outCntMsg));
 
@@ -139,15 +176,17 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 
         RtmpHeader responseHeader = new RtmpHeader();
         responseHeader.setFmt((byte) 0);
-        responseHeader.setChannelStreamId(3);
+        responseHeader.setChunkStreamId(3);
         responseHeader.setTimeStamp(0);
         responseHeader.setMessageTypeId(response.outBoundMessageTypeId());
         responseHeader.setMessageStreamId(response.outboundMsid());
         responseHeader.setMessageLength(response.outMessageToBytes().length);
 
-        List<RtmpMessage> out = new ArrayList<>(Arrays.asList(new RtmpMessage(responseHeader, response)));
-
+        List<RtmpMessage> out = new ArrayList<>(1);
+        out.add(new RtmpMessage(responseHeader, response));
+//        ByteBuf buf = ctx.alloc().buffer();
         ctx.write(out);
+//        ReferenceCountUtil.release(out);
     }
 
     private void handlePublish(ChannelHandlerContext ctx, RtmpMessage msg) {
@@ -164,13 +203,17 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 
         RtmpHeader responseHeader = new RtmpHeader();
         responseHeader.setFmt((byte) 0);
-        responseHeader.setChannelStreamId(onStatusMessage.outboundCsid());
+        responseHeader.setChunkStreamId(onStatusMessage.outboundCsid());
         responseHeader.setTimeStamp(0);
         responseHeader.setMessageTypeId(onStatusMessage.outBoundMessageTypeId());
         responseHeader.setMessageStreamId(onStatusMessage.outboundMsid());
         responseHeader.setMessageLength(onStatusMessage.outMessageToBytes().length);
 
         ctx.write(Arrays.asList(new RtmpMessage(responseHeader, onStatusMessage)));
+    }
+
+    private void handleMetaData(ChannelHandlerContext ctx, RtmpMessage msg) {
+
     }
 
 }

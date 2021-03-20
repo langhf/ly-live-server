@@ -33,7 +33,7 @@ public class RtmpHeader {
     /**
      * 真实的 CSID
      */
-    private int channelStreamId;
+    private int chunkStreamId;
 
     // message header
     /**
@@ -57,6 +57,17 @@ public class RtmpHeader {
      */
     private int messageStreamId;
 
+    public RtmpHeader() {}
+
+    public RtmpHeader(RtmpHeader source) {
+        fmt = source.fmt;
+        chunkStreamId = source.chunkStreamId;;
+        messageLength = source.messageLength;
+        messageTypeId = source.messageTypeId;
+        messageStreamId = source.messageStreamId;
+        timeStamp = source.timeStamp;
+    }
+
     /**
      * 根据要发送的 RtmpBody 类型，生成 RtmpHeader
      */
@@ -65,7 +76,7 @@ public class RtmpHeader {
         if (body instanceof ProtocolControlMessage) {
             ProtocolControlMessage m = (ProtocolControlMessage) body;
             header.setFmt((byte) 0);
-            header.setChannelStreamId(m.outChunkStreamId());
+            header.setChunkStreamId(m.outChunkStreamId());
             header.setTimeStamp(0);
             header.setMessageLength(m.outMessageLength());
             header.setMessageTypeId(m.outBoundMessageTypeId());
@@ -79,6 +90,5 @@ public class RtmpHeader {
         }
         return header;
     }
-
 }
 
