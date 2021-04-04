@@ -64,16 +64,16 @@ public class AMF0 {
                     // value 类型多样
                     Object value = decodeAMF0Type(buf);
                     array.put(key, value);
-                    if (key.equals("framerate") || key.equals("audiocodecid")) {  // 不知为啥会多出一个 0xC4 还多了个 0x00
-                        buf.skipBytes(1);
-                    }
-                    if (key.equals("filesize")) {
-                        buf.skipBytes(1);
-                        break;
-                    }
+//                    if (key.equals("framerate") || key.equals("audiocodecid")) {  // 不知为啥会多出一个 0xC4 还多了个 0x00
+//                        buf.skipBytes(1);
+//                    }
+//                    if (key.equals("filesize")) {
+//                        buf.skipBytes(1);
+//                        break;
+//                    }
                 }
                 // 探测到 Object End 后，需要将读指针向后移动3位
-//                buf.skipBytes(3);
+                buf.skipBytes(3);
                 ECMAArray ecmaArray = new ECMAArray();
                 ecmaArray.setLength(arrayLen);
                 ecmaArray.setInfo(array);

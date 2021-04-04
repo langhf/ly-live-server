@@ -4,6 +4,7 @@ import cn.drelang.live.server.rtmp.message.command.AudioMessage;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.RtmpCommandMessage;
 import cn.drelang.live.server.rtmp.message.protocol.ProtocolControlMessage;
+import io.netty.buffer.ByteBuf;
 import lombok.Data;
 
 /**
@@ -56,6 +57,16 @@ public class RtmpHeader {
      * 消息 stream id
      */
     private int messageStreamId;
+
+    /**
+     * 原始 body 字节数组
+     */
+    private ByteBuf rawBodyBytes;
+
+    /**
+     * 剩余要读取的body数据
+     */
+    private int leftToRead;
 
     public RtmpHeader() {}
 

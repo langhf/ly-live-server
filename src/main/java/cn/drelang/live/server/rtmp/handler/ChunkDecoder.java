@@ -1,5 +1,6 @@
 package cn.drelang.live.server.rtmp.handler;
 
+import cn.drelang.live.server.exception.OperationNotSupportException;
 import cn.drelang.live.server.rtmp.entity.RtmpMessage;
 import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
@@ -12,6 +13,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ReplayingDecoder;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,10 +34,8 @@ import static cn.drelang.live.server.rtmp.entity.Constants.*;
 @Slf4j
 public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
 
-    byte LOW_SIX = (byte)0x3F;
-    byte BYTE = (byte)0xFF;
-
-    final int CHUNK_SIZE = 4096;
+    final int CHUNK_SIZE = 1024;
+    final int DEFAULT_CHUNK_SIZE = 128;
     /**
      * 管理 stream id
      */
@@ -82,11 +84,17 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
             currentHeader = readHeader(in);
             checkpoint(State.READ_BODY);
         } else if (state() == State.READ_BODY) {
-            RtmpHeader header = headerManager.get(currentHeader.getChunkStreamId());
-            int payloadLength = Math.min(CHUNK_SIZE, header.getMessageLength());
-            ByteBuf buf = in.readBytes(payloadLength);
-            // must checkpoint() before later action
+            RtmpHeader header = currentHeader;
+            int left = header.getLeftToRead();
+            int toRead = Math.min(DEFAULT_CHUNK_SIZE, left);
+            header.getRawBodyBytes().writeBytes(in.readBytes(toRead));
+            header.setLeftToRead(left - toRead);
             checkpoint(State.READ_HEADER);
+
+            if (header.getLeftToRead() != 0) {   // 读到一个完整的消息后再继续，否则等待后续的 Chunk
+                return ;
+            }
+            ByteBuf buf = header.getRawBodyBytes();
             switch (header.getMessageTypeId()) {
                 case COMMAND_MESSAGE_AMF0: {
                     out.add(new RtmpMessage(header, CommandMessage.createInstance(buf)));
@@ -113,8 +121,15 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
                 default: ctx.close();
             }
         } else {
-            throw new RuntimeException("ChunkDecoder state error " + state());
+            throw new OperationNotSupportException("unsupported State " + state());
         }
+
+//        RtmpHeader header = headerManager.get(currentHeader.getChunkStreamId());
+//            int payloadLength = Math.min(CHUNK_SIZE, header.getMessageLength());
+//            ByteBuf buf = in.readBytes(payloadLength);
+//        ByteBuf buf = header.getRawBodyBytes();
+        // must checkpoint() before later action
+
     }
 
     @Override
@@ -125,12 +140,12 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
     private RtmpHeader readHeader(ByteBuf in) {
         byte first = in.readByte();
 
-        // 解析 csid
-        int csid = (byte) (first & LOW_SIX);
+        // 解析 csid, 取低六位
+        int csid = (byte) (first & 0x3F);
         if (csid == 0) {    // 需要额外一个字节
             csid = in.readByte() + 64;
         } else if (csid == 1) { // 需要额外两个字节
-            csid = in.readShort() + 64;
+            csid = in.readUnsignedShort() + 64;
         }
 
         // 从缓存中读取 chunkHeader
@@ -138,10 +153,11 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
         if (header == null) {
             header = new RtmpHeader();
             header.setChunkStreamId(csid);
+            header.setRawBodyBytes(Unpooled.buffer());
         }
 
-        // 解析 fmt
-        byte fmt = (byte) ((first >> 6) & BYTE);
+        // 解析 fmt，注意此处需要与字面量 0xFF 进行 & 操作才行
+        byte fmt = (byte) ((first & 0xFF) >> 6);
         header.setFmt(fmt);
 
         if (fmt == 3) {
@@ -152,14 +168,15 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
 
         if (fmt != 2) {
             // fmt = 0, 1 时，都需要读 message length 和 message type id
-            header.setMessageLength(in.readUnsignedMedium());
+            int msgLen = in.readUnsignedMedium();
+            header.setMessageLength(msgLen);
             header.setMessageTypeId(in.readByte());
+            header.setLeftToRead(msgLen);
             if (fmt == 0) {
                 // fmt = 0 时，还要读 message stream id
-                header.setMessageStreamId(in.readIntLE());
+                header.setMessageStreamId((int)in.readUnsignedIntLE());
             }
 
-            headerManager.put(csid, header);
         }
 
         // 处理可能的 extended timestamp
@@ -173,7 +190,36 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
             header.setTimeStamp(timestampDelta + header.getTimeStamp());
         }
 
+//        ByteBuf bodyBytes;
+//        if (msgLen < DEFAULT_CHUNK_SIZE) {  // 一个 chunk 能装下一个消息
+//            bodyBytes = in.readBytes(msgLen);
+//        } else {    // 一个 chunk 装不下，要分多个 chunk，后续 chunk 是 fmt=3 的格式
+//            bodyBytes = Unpooled.buffer();
+//            int left = msgLen;
+//            int toRead = Math.min(DEFAULT_CHUNK_SIZE, left);
+//            bodyBytes.writeBytes(in.readBytes(toRead));
+//            left -= toRead;
+//            while (left > 0) {
+//                toRead = Math.min(DEFAULT_CHUNK_SIZE, left);
+//                byte h = in.readByte(); // 跳过 fmt=3 的头，那是无用数据
+//                bodyBytes.writeBytes(in.readBytes(toRead));
+//                left -= toRead;
+//            }
+//        }
+//
+//        checkpoint(State.READ_HEADER);
+//        header.setRawBodyBytes(bodyBytes);
+
+        headerManager.put(csid, header);
+
         return header;
+    }
+
+    private void dumpMsg(byte[] msg) throws IOException {
+        File file = new File("dump_" + System.currentTimeMillis() + ".hex");
+        FileOutputStream outputStream = new FileOutputStream(file);
+        outputStream.write(msg);
+        outputStream.close();
     }
 
 }

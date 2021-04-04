@@ -1,5 +1,6 @@
 package cn.drelang.live.server.rtmp.handler;
 
+import cn.drelang.live.server.exception.OperationNotSupportException;
 import cn.drelang.live.server.rtmp.amf.ECMAArray;
 import cn.drelang.live.server.rtmp.entity.*;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
@@ -55,45 +56,35 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, RtmpMessage msg) throws Exception {
         RtmpHeader header = msg.getHeader();
-        switch (header.getMessageTypeId()) {
-            case COMMAND_MESSAGE_AMF0: {
-                CommandMessage commandMessage = (CommandMessage) msg.getBody();
-                String commandName = commandMessage.getCommandName();
-                switch (commandName) {
-                    case "connect":
-                        handleConnect(ctx);
-                        break;
-                    case "releaseStream":
-                        handleReleaseStream(ctx, msg);
-                        break;
-                    case "createStream":
-                        handleCreateStream(ctx, msg);
-                        break;
-                    case "publish":
-                        handlePublish(ctx, msg);
-                        break;
-                }
-                break;
+        byte msid = header.getMessageTypeId();
+        if (msid == COMMAND_MESSAGE_AMF0) {
+            CommandMessage commandMessage = (CommandMessage) msg.getBody();
+            String commandName = commandMessage.getCommandName();
+            switch (commandName) {
+                case "connect":
+                    handleConnect(ctx);
+                    break;
+                case "releaseStream":
+                    handleReleaseStream(ctx, msg);
+                    break;
+                case "createStream":
+                    handleCreateStream(ctx, msg);
+                    break;
+                case "publish":
+                    handlePublish(ctx, msg);
+                    break;
             }
-            case METADATA_AMF0: {
-                DataMessage dataMessage = (DataMessage) msg.getBody();
-                ECMAArray ecmaArray = dataMessage.getEcmaArray();
-                break;
-            }
+        } else if (msid ==  METADATA_AMF0) {
+            handleMetaData(ctx, msg);
+        } else if (msid == AUDIO_MESSAGE) {
 
+        } else if (msid == VIDEO_MESSAGE) {
+
+        } else {
+            throw new OperationNotSupportException("msid=" + msid);
         }
 
         System.out.println(msg.getBody().getClass().getSimpleName());
-    }
-
-    @Override
-    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-
-    }
-
-    @Override
-    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
-
     }
 
     @Override
@@ -114,8 +105,8 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         // 注意：由于 RTMP 默认的 Chunk Size 为 128，而此处想要发送几个 RTMP 消息，总长度超过了 128，
         //      因此要让客户端设置新的 Chunk Size，才能让所有的消息发送过去！
 
-        // Set Chunk Size
-        SetChunkSizeMessage scsMessage = new SetChunkSizeMessage(4096);
+        // Set Chunk Size, 此命令含义：告诉对方己方发送 Chunk 的大小，而不是设置对方发送 Chunk 的大小
+        SetChunkSizeMessage scsMessage = new SetChunkSizeMessage(1024);
         outs.add(new RtmpMessage(scsMessage.createOutboundHeader(), scsMessage));
 
         // _result
@@ -213,6 +204,11 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     }
 
     private void handleMetaData(ChannelHandlerContext ctx, RtmpMessage msg) {
+        DataMessage dataMessage = (DataMessage) msg.getBody();
+        ECMAArray ecmaArray = dataMessage.getEcmaArray();
+    }
+
+    private void handleVideoData(ChannelHandlerContext ctx, RtmpMessage msg) {
 
     }
 
