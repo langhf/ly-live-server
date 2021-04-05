@@ -19,7 +19,31 @@ public class FLVTag {
 
     FLVData data;
 
-    enum TAG_TYPE {
+    public void setType(TAG_TYPE type) {
+        this.type = type;
+    }
+
+    public void setDataSize(int dataSize) {
+        this.dataSize = dataSize;
+    }
+
+    public void setTimeStamp(int timeStamp) {
+        this.timeStamp = timeStamp;
+    }
+
+    public void setTimeStampExtended(short timeStampExtended) {
+        this.timeStampExtended = timeStampExtended;
+    }
+
+    public void setStreamId(int streamId) {
+        this.streamId = streamId;
+    }
+
+    public void setData(FLVData data) {
+        this.data = data;
+    }
+
+    public enum TAG_TYPE {
         AUDIO((byte) 0x08),
         VIDEO((byte) 0x09),
         SCRIPT((byte) 0x12)

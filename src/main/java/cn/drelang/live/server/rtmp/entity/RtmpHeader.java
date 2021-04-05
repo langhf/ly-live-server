@@ -1,6 +1,6 @@
 package cn.drelang.live.server.rtmp.entity;
 
-import cn.drelang.live.server.rtmp.message.command.AudioMessage;
+import cn.drelang.live.server.rtmp.message.media.AudioMessage;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.RtmpCommandMessage;
 import cn.drelang.live.server.rtmp.message.protocol.ProtocolControlMessage;
@@ -72,7 +72,7 @@ public class RtmpHeader {
 
     public RtmpHeader(RtmpHeader source) {
         fmt = source.fmt;
-        chunkStreamId = source.chunkStreamId;;
+        chunkStreamId = source.chunkStreamId;
         messageLength = source.messageLength;
         messageTypeId = source.messageTypeId;
         messageStreamId = source.messageStreamId;

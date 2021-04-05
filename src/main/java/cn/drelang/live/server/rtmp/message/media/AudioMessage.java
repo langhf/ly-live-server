@@ -1,4 +1,4 @@
-package cn.drelang.live.server.rtmp.message.command;
+package cn.drelang.live.server.rtmp.message.media;
 
 /**
  * 音频消息
@@ -7,15 +7,16 @@ package cn.drelang.live.server.rtmp.message.command;
  * @date 2021/3/7 16:45
  */
 
-public class AudioMessage implements RtmpCommandMessage {
+public class AudioMessage extends MediaMessage {
+
+    public AudioMessage() {}
+
+    public AudioMessage(byte[] data) {
+        super(data);
+    }
     @Override
     public byte outBoundMessageTypeId() {
         return 0x08;
-    }
-
-    @Override
-    public byte[] outMessageToBytes() {
-        return new byte[0];
     }
 
     @Override

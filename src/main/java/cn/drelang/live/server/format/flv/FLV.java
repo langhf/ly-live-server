@@ -4,6 +4,7 @@ import cn.drelang.live.server.rtmp.amf.AMF0;
 import cn.drelang.live.server.rtmp.amf.ECMAArray;
 import cn.drelang.live.server.rtmp.entity.Constants;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,7 +101,7 @@ public class FLV {
      * @param dataLen size of sound data
      * @return {@link FLVData}
      */
-    private static FLVData decodeAudio(ByteBuf in, int dataLen) {
+    public static FLVData.Audio decodeAudio(ByteBuf in, int dataLen) {
         FLVData.Audio audio = new FLVData.Audio();
         byte type = in.readByte();
         audio.soundFormat = FLVData.Audio.SOUND_FORMAT.getByCode((byte) ((type & 0xF0) >> 4));
@@ -130,7 +131,7 @@ public class FLV {
      * @param dataLen size of sound data
      * @return {@link FLVData}
      */
-    private static FLVData decodeVideo(ByteBuf in, int dataLen) {
+    public static FLVData.Video decodeVideo(ByteBuf in, int dataLen) {
         FLVData.Video video = new FLVData.Video();
         byte first = in.readByte();
         video.frameType = FLVData.Video.FRAME_TYPE.getByCode((byte) ((first & 0xF0) >> 4));
@@ -151,7 +152,7 @@ public class FLV {
         return video;
     }
 
-    private static FLVData.Script decodeScript(ByteBuf in, int dataLen) {
+    public static FLVData.Script decodeScript(ByteBuf in, int dataLen) {
         FLVData.Script script = new FLVData.Script();
         List<FLVData.Script.ScriptData> data = new ArrayList<>();
 
@@ -209,40 +210,11 @@ public class FLV {
 
         FLVData data = tag.data;
         if (data instanceof FLVData.Video) {
-            byte first = ((FLVData.Video) data).frameType.code;
-            first <<= 4;
-            first ^= ((FLVData.Video) data).codec.code;
-            buf.writeByte(first);
-
-            FLVData.Video.VideoData videoData = ((FLVData.Video) data).videoData;
-            if (videoData instanceof FLVData.Video.AVCVideoPacket) {
-                buf.writeByte(((FLVData.Video.AVCVideoPacket) videoData).packetType.code);
-                buf.writeMedium(((FLVData.Video.AVCVideoPacket) videoData).compositionTime);
-                buf.writeBytes(videoData.data);
-            } else {
-                buf.writeBytes(videoData.data);
-            }
+            buf.writeBytes(encodeVideo((FLVData.Video) data));
         } else if (data instanceof FLVData.Audio) {
-            byte first = ((FLVData.Audio) data).soundFormat.code;
-            first <<= 4;
-            first ^= ((FLVData.Audio) data).sampleRate.code << 2;
-            first ^= ((FLVData.Audio) data).soundSize.code << 1;
-            first ^= ((FLVData.Audio) data).soundType.code;
-            buf.writeByte(first);
-
-            FLVData.Audio.AudioData audioData = ((FLVData.Audio) data).audioData;
-            if (audioData instanceof FLVData.Audio.AACAudioData) {
-                buf.writeByte(((FLVData.Audio.AACAudioData) audioData).packetType.code);
-                buf.writeBytes(audioData.data);
-            } else {
-                buf.writeBytes(audioData.data);
-            }
+            buf.writeBytes(encodeAudio((FLVData.Audio) data));
         } else if (data instanceof FLVData.Script) {
-            List<FLVData.Script.ScriptData> objects = ((FLVData.Script) data).objects;
-            for (FLVData.Script.ScriptData scriptData : objects) {
-                buf.writeBytes(AMF0.encodeAMF0Type(scriptData.objectName));
-                buf.writeBytes(AMF0.encodeAMF0Type(scriptData.objectData));
-            }
+            buf.writeBytes(encodeScript((FLVData.Script) data));
         } else {
             LOG.error("unsupported type {}", tag.type);
         }
@@ -255,6 +227,56 @@ public class FLV {
         out.write(0x01);    // version
         out.write(0x05);    // audio flag, video flag
         out.write(new byte[]{0x00, 0x00, 0x00, 0x09});    // size of the header
+    }
+
+    public static byte[] encodeAudio(FLVData.Audio audio) {
+        ByteBuf buf = Unpooled.buffer();
+        byte first = audio.soundFormat.code;
+        first <<= 4;
+        first ^= audio.sampleRate.code << 2;
+        first ^= audio.soundSize.code << 1;
+        first ^= audio.soundType.code;
+        buf.writeByte(first);
+
+        FLVData.Audio.AudioData audioData = audio.audioData;
+        if (audioData instanceof FLVData.Audio.AACAudioData) {
+            buf.writeByte(((FLVData.Audio.AACAudioData) audioData).packetType.code);
+            buf.writeBytes(audioData.data);
+        } else {
+            buf.writeBytes(audioData.data);
+        }
+
+        return ByteBufUtil.getBytes(buf);
+    }
+
+    public static byte[] encodeVideo(FLVData.Video video) {
+        ByteBuf buf = Unpooled.buffer();
+        byte first = video.frameType.code;
+        first <<= 4;
+        first ^= video.codec.code;
+        buf.writeByte(first);
+
+        FLVData.Video.VideoData videoData = video.videoData;
+        if (videoData instanceof FLVData.Video.AVCVideoPacket) {
+            buf.writeByte(((FLVData.Video.AVCVideoPacket) videoData).packetType.code);
+            buf.writeMedium(((FLVData.Video.AVCVideoPacket) videoData).compositionTime);
+            buf.writeBytes(videoData.data);
+        } else {
+            buf.writeBytes(videoData.data);
+        }
+
+        return ByteBufUtil.getBytes(buf);
+    }
+
+    public static byte[] encodeScript(FLVData.Script script) {
+        ByteBuf buf = Unpooled.buffer();
+        List<FLVData.Script.ScriptData> objects = script.objects;
+        for (FLVData.Script.ScriptData scriptData : objects) {
+            buf.writeBytes(AMF0.encodeAMF0Type(scriptData.objectName));
+            buf.writeBytes(AMF0.encodeAMF0Type(scriptData.objectData));
+        }
+
+        return ByteBufUtil.getBytes(buf);
     }
 
     public static void main(String[] args) throws IOException {

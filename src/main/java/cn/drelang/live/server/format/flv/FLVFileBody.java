@@ -16,6 +16,14 @@ public class FLVFileBody {
         FLVTag tag;
         long previousTagSize;
 
+        public void setTag(FLVTag tag) {
+            this.tag = tag;
+        }
+
+        public void setPreviousTagSize(long previousTagSize) {
+            this.previousTagSize = previousTagSize;
+        }
+
         @Override
         public String toString() {
             return "Node{" +

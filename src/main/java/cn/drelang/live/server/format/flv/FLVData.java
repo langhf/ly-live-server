@@ -10,7 +10,7 @@ import java.util.List;
 
 public class FLVData {
 
-    static class Audio extends FLVData {
+    public static class Audio extends FLVData {
 
         SOUND_FORMAT soundFormat;
 
@@ -225,7 +225,7 @@ public class FLVData {
 
     }
 
-    static class Video extends FLVData {
+    public static class Video extends FLVData {
 
         FRAME_TYPE frameType;
 
@@ -306,11 +306,19 @@ public class FLVData {
         }
 
 
-        static class VideoData {
+        public static class VideoData {
             byte[] data;
+
+            public void setData(byte[] data) {
+                this.data = data;
+            }
+
+            public byte[] getData() {
+                return data;
+            }
         }
 
-        static class AVCVideoPacket extends VideoData {
+        public static class AVCVideoPacket extends VideoData {
             AVCPacketType packetType;
 
             int compositionTime;
@@ -350,13 +358,25 @@ public class FLVData {
         }
     }
 
-    static class Script extends FLVData {
+    public static class Script extends FLVData {
 
         List<ScriptData> objects;
 
-        static class ScriptData {
+        public void setObjects(List<ScriptData> objects) {
+            this.objects = objects;
+        }
+
+        public static class ScriptData {
             String objectName;
             Object objectData;
+
+            public void setObjectName(String objectName) {
+                this.objectName = objectName;
+            }
+
+            public void setObjectData(Object objectData) {
+                this.objectData = objectData;
+            }
         }
     }
 }

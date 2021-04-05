@@ -4,9 +4,7 @@ import cn.drelang.live.server.rtmp.amf.AMF0;
 import cn.drelang.live.server.rtmp.entity.Constants;
 import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.CreateStreamMessage;
-import cn.drelang.live.server.rtmp.message.command.netstream.FCPublishMessage;
-import cn.drelang.live.server.rtmp.message.command.netstream.PublishMessage;
-import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.*;
 import com.google.common.collect.Maps;
 import io.netty.buffer.ByteBuf;
 import lombok.Data;
@@ -38,6 +36,8 @@ public abstract class CommandMessage implements RtmpCommandMessage {
         COMMAND_MAP.put("FCPublish", FCPublishMessage.class);
         COMMAND_MAP.put("createStream", CreateStreamMessage.class);
         COMMAND_MAP.put("publish", PublishMessage.class);
+        COMMAND_MAP.put("deleteStream", DeleteStreamMessage.class);
+        COMMAND_MAP.put("FCUnpublish", FCUnpublishMessage.class);
     }
 
     /**
@@ -121,7 +121,7 @@ public abstract class CommandMessage implements RtmpCommandMessage {
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(e);
         } catch (Exception e) {
-            throw new RuntimeException("can not parse command name", e);
+            throw new RuntimeException("can not parse command name " + commandName, e);
         }
         return commandMessage;
     }

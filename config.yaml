@@ -2,6 +2,6 @@ httpPort: 9999
 
 rtmpPort: 1935
 
-recordFlvFile: false
+recordFlvFile: true
 
 recordPath: ./record

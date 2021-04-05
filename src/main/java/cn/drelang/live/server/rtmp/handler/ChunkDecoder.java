@@ -5,9 +5,12 @@ import cn.drelang.live.server.rtmp.entity.RtmpMessage;
 import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.DataMessage;
+import cn.drelang.live.server.rtmp.message.media.AudioMessage;
+import cn.drelang.live.server.rtmp.message.media.VideoMessage;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ReplayingDecoder;
@@ -51,7 +54,7 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
      */
     enum State {
         READ_HEADER,   // 准备解析 header
-        READ_BODY; // 准备解析 body
+        READ_BODY // 准备解析 body
     }
 
     private RtmpHeader currentHeader;
@@ -72,10 +75,10 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
 
     /**
      * 只要 in 有数据，就会不断解析
-     * @param ctx
-     * @param in
-     * @param out
-     * @throws Exception
+     * @param ctx ChannelHandlerContext
+     * @param in ByteBuf
+     * @param out List<Object>
+     * @throws Exception unexpected
      */
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
@@ -111,11 +114,13 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
 
                 }
                 case AUDIO_MESSAGE: {
-                    System.out.println("find audio data");
+                    out.add(new RtmpMessage(header, new AudioMessage(ByteBufUtil.getBytes(buf))));
+//                    System.out.println("find audio data");
                     break;
                 }
                 case VIDEO_MESSAGE: {
-                    System.out.println("find video data");
+                    out.add(new RtmpMessage(header, new VideoMessage(ByteBufUtil.getBytes(buf))));
+//                    System.out.println("find video data");
                     break;
                 }
                 default: ctx.close();
