@@ -106,7 +106,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         //      因此要让客户端设置新的 Chunk Size，才能让所有的消息发送过去！
 
         // Set Chunk Size, 此命令含义：告诉对方己方发送 Chunk 的大小，而不是设置对方发送 Chunk 的大小
-        SetChunkSizeMessage scsMessage = new SetChunkSizeMessage(1024);
+        SetChunkSizeMessage scsMessage = new SetChunkSizeMessage(128);
         outs.add(new RtmpMessage(scsMessage.createOutboundHeader(), scsMessage));
 
         // _result

@@ -31,12 +31,34 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
     }
 
     private void wrapMessage(RtmpMessage msg, ByteBuf out) {
+        int outChunkSize = 128;
         RtmpHeader header = msg.getHeader();
 
         // wrap header
-        byte fmt = header.getFmt();
-        byte first = (byte) (fmt << 6);
         int csid = header.getChunkStreamId();
+
+        int msgLen = header.getMessageLength();
+        if (msgLen <= outChunkSize) {
+            wrapByFmt((byte)0, header, out);
+            out.writeBytes(msg.getBody().outMessageToBytes());
+        } else {    // 需要分多个 Chunk
+            wrapByFmt((byte)0, header, out);
+            int toWrite = Math.min(msgLen, outChunkSize);
+            ByteBuf buf = Unpooled.copiedBuffer(msg.getBody().outMessageToBytes());
+            out.writeBytes(buf.readBytes(toWrite));
+            int left = msgLen - toWrite;
+            while (left > 0) {
+                wrapByFmt((byte)3, header, out);
+                toWrite = Math.min(left, outChunkSize);
+                out.writeBytes(buf.readBytes(toWrite));
+                left -= toWrite;
+            }
+        }
+
+    }
+
+    private byte[] buildBasicHeader(byte fmt, int csid) {
+        byte first = (byte) (fmt << 6);
         byte[] exCsid = null;
         if (csid <= 63) {
             first ^= csid;
@@ -48,25 +70,22 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
             first ^= 0x01;
             exCsid = ByteUtil.convertInt2BytesBE(csid - 64, 2);
         }
+        return exCsid == null ? new byte[]{first} : ByteUtil.mergeByteArray(new byte[]{first}, exCsid);
+    }
 
-        out.writeByte(first);
-        if (exCsid != null) {
-            out.writeBytes(exCsid);
-        }
-
+    private void wrapByFmt(byte fmt, RtmpHeader header, ByteBuf out) {
+        out.writeBytes(buildBasicHeader(fmt, header.getChunkStreamId()));
         if (fmt != 3) {
             out.writeBytes(ByteUtil.convertInt2BytesBE(header.getTimeStamp(), 3));
             if (fmt != 2) {
                 out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageLength(), 3));
                 out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageTypeId(), 1));
                 if (fmt != 1) {
-                    out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageStreamId(), 4));
+                    out.writeBytes(ByteUtil.convertInt2BytesLE(header.getMessageStreamId(), 4));
                 }
             }
         }
 
-        // wrap body
-        out.writeBytes(msg.getBody().outMessageToBytes());
     }
 
 }
