@@ -62,11 +62,6 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
      */
     private FileOutputStream fileOutputStream;
 
-    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
-//        ctx.flush();
-        // do nothing
-    }
-
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, RtmpMessage msg) throws Exception {
         RtmpHeader header = msg.getHeader();
@@ -108,7 +103,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("CoreRtmpHandler error ", cause);
     }
 
@@ -222,7 +217,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         responseHeader.setMessageStreamId(onStatusMessage.outboundMsid());
         responseHeader.setMessageLength(onStatusMessage.outMessageToBytes().length);
 
-        ctx.write(Arrays.asList(new RtmpMessage(responseHeader, onStatusMessage)));
+        ctx.write(Collections.singletonList(new RtmpMessage(responseHeader, onStatusMessage)));
     }
 
     private void handleMetaData(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
@@ -230,32 +225,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         ECMAArray ecmaArray = dataMessage.getEcmaArray();
 
         if (LiveConfig.INSTANCE.isRecordFlvFile()) {
-            if (fileOutputStream == null) {
-                fileOutputStream = new FileOutputStream(appName + "_" + System.currentTimeMillis());
-                FLV.encodeFLVHeader(fileOutputStream);
-            }
-
-            FLVData.Script data = new FLVData.Script();
-            FLVData.Script.ScriptData scriptData = new FLVData.Script.ScriptData();
-            scriptData.setObjectName("onMetaData");
-            scriptData.setObjectData(ecmaArray);
-            data.setObjects(Arrays.asList(scriptData));
-
-            FLVTag tag = new FLVTag();
-            tag.setType(FLVTag.TAG_TYPE.SCRIPT);
-            tag.setDataSize(msg.getHeader().getMessageLength());
-            tag.setTimeStamp(0);
-            tag.setTimeStampExtended((byte) 0);
-            tag.setStreamId(0);
-            tag.setData(data);
-
-            FLVFileBody.Node node = new FLVFileBody.Node();
-            node.setPreviousTagSize(0);
-            node.setTag(tag);
-
-            FLV.encode(fileOutputStream, node);
-
-            previousTagSize = msg.getHeader().getMessageLength() + 11;
+            saveFile(msg);
         }
 
     }
@@ -264,23 +234,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         VideoMessage videoMessage = (VideoMessage) msg.getBody();
 
         if (LiveConfig.INSTANCE.isRecordFlvFile()) {
-            RtmpHeader header = msg.getHeader();
-            FLVData.Video data = FLV.decodeVideo(Unpooled.copiedBuffer(videoMessage.outMessageToBytes()), header.getMessageLength());
-
-            FLVTag tag = new FLVTag();
-            tag.setType(FLVTag.TAG_TYPE.VIDEO);
-            tag.setDataSize(header.getMessageLength());
-            tag.setTimeStamp(header.getTimeStamp());
-            tag.setTimeStampExtended((byte) 0);
-            tag.setStreamId(0);
-            tag.setData(data);
-
-            FLVFileBody.Node node = new FLVFileBody.Node();
-            node.setPreviousTagSize(previousTagSize);
-            node.setTag(tag);
-            FLV.encode(fileOutputStream, node);
-
-            previousTagSize = header.getMessageLength() + 11;
+            saveFile(msg);
         }
     }
 
@@ -288,24 +242,52 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         AudioMessage audioMessage = (AudioMessage) msg.getBody();
 
         if (LiveConfig.INSTANCE.isRecordFlvFile()) {
-            RtmpHeader header = msg.getHeader();
-            FLVData.Audio data = FLV.decodeAudio(Unpooled.copiedBuffer(audioMessage.outMessageToBytes()), header.getMessageLength());
-
-            FLVTag tag = new FLVTag();
-            tag.setType(FLVTag.TAG_TYPE.VIDEO);
-            tag.setDataSize(header.getMessageLength());
-            tag.setTimeStamp(header.getTimeStamp());
-            tag.setTimeStampExtended((byte) 0);
-            tag.setStreamId(0);
-            tag.setData(data);
-
-            FLVFileBody.Node node = new FLVFileBody.Node();
-            node.setPreviousTagSize(previousTagSize);
-            node.setTag(tag);
-            FLV.encode(fileOutputStream, node);
-
-            previousTagSize = header.getMessageLength() + 11;
+            saveFile(msg);
         }
+    }
+
+    private void saveFile(RtmpMessage msg) throws IOException {
+        if (fileOutputStream == null) {
+            fileOutputStream = new FileOutputStream(appName + "_" + System.currentTimeMillis() +".flv");
+            FLV.encodeFLVHeader(fileOutputStream);
+        }
+
+        RtmpHeader header = msg.getHeader();
+        RtmpBody body = msg.getBody();
+
+        FLVData data;
+        FLVTag.TAG_TYPE tag_type;
+        if (body instanceof AudioMessage) {
+            data = FLV.decodeAudio(Unpooled.copiedBuffer(body.outMessageToBytes()), header.getMessageLength());
+            tag_type = FLVTag.TAG_TYPE.AUDIO;
+        } else if (body instanceof VideoMessage) {
+            data = FLV.decodeVideo(Unpooled.copiedBuffer(body.outMessageToBytes()), header.getMessageLength());
+            tag_type = FLVTag.TAG_TYPE.VIDEO;
+        } else if (body instanceof DataMessage) {
+            data = new FLVData.Script();
+            FLVData.Script.ScriptData scriptData = new FLVData.Script.ScriptData();
+            scriptData.setObjectName("onMetaData");
+            scriptData.setObjectData(((DataMessage) body).getEcmaArray());
+            ((FLVData.Script) data).setObjects(Collections.singletonList(scriptData));
+            tag_type = FLVTag.TAG_TYPE.SCRIPT;
+        } else {
+            throw new OperationNotSupportException("unsupported msg " + msg);
+        }
+
+        FLVTag tag = new FLVTag();
+        tag.setType(tag_type);
+        tag.setDataSize(header.getMessageLength());
+        tag.setTimeStamp(header.getTimeStamp());
+        tag.setTimeStampExtended((byte) 0);
+        tag.setStreamId(0);
+        tag.setData(data);
+
+        FLVFileBody.Node node = new FLVFileBody.Node();
+        node.setPreviousTagSize(previousTagSize);
+        node.setTag(tag);
+        FLV.encode(fileOutputStream, node);
+
+        previousTagSize = header.getMessageLength() + 11;
     }
 
     private void handleDeleteStream(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {

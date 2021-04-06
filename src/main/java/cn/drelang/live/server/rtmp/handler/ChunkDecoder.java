@@ -78,10 +78,9 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
      * @param ctx ChannelHandlerContext
      * @param in ByteBuf
      * @param out List<Object>
-     * @throws Exception unexpected
      */
     @Override
-    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
 
         if (state() == State.READ_HEADER) {
             currentHeader = readHeader(in);
@@ -90,7 +89,9 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
             RtmpHeader header = currentHeader;
             int left = header.getLeftToRead();
             int toRead = Math.min(DEFAULT_CHUNK_SIZE, left);
-            header.getRawBodyBytes().writeBytes(in.readBytes(toRead));
+            ByteBuf temp = in.readBytes(toRead);
+            header.getRawBodyBytes().writeBytes(temp);
+            temp.release();
             header.setLeftToRead(left - toRead);
             checkpoint(State.READ_HEADER);
 
@@ -115,12 +116,10 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
                 }
                 case AUDIO_MESSAGE: {
                     out.add(new RtmpMessage(header, new AudioMessage(ByteBufUtil.getBytes(buf))));
-//                    System.out.println("find audio data");
                     break;
                 }
                 case VIDEO_MESSAGE: {
                     out.add(new RtmpMessage(header, new VideoMessage(ByteBufUtil.getBytes(buf))));
-//                    System.out.println("find video data");
                     break;
                 }
                 default: ctx.close();
@@ -129,16 +128,10 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
             throw new OperationNotSupportException("unsupported State " + state());
         }
 
-//        RtmpHeader header = headerManager.get(currentHeader.getChunkStreamId());
-//            int payloadLength = Math.min(CHUNK_SIZE, header.getMessageLength());
-//            ByteBuf buf = in.readBytes(payloadLength);
-//        ByteBuf buf = header.getRawBodyBytes();
-        // must checkpoint() before later action
-
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("ChunkDecoder error ", cause);
     }
 
@@ -194,26 +187,6 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
         } else {
             header.setTimeStamp(timestampDelta + header.getTimeStamp());
         }
-
-//        ByteBuf bodyBytes;
-//        if (msgLen < DEFAULT_CHUNK_SIZE) {  // 一个 chunk 能装下一个消息
-//            bodyBytes = in.readBytes(msgLen);
-//        } else {    // 一个 chunk 装不下，要分多个 chunk，后续 chunk 是 fmt=3 的格式
-//            bodyBytes = Unpooled.buffer();
-//            int left = msgLen;
-//            int toRead = Math.min(DEFAULT_CHUNK_SIZE, left);
-//            bodyBytes.writeBytes(in.readBytes(toRead));
-//            left -= toRead;
-//            while (left > 0) {
-//                toRead = Math.min(DEFAULT_CHUNK_SIZE, left);
-//                byte h = in.readByte(); // 跳过 fmt=3 的头，那是无用数据
-//                bodyBytes.writeBytes(in.readBytes(toRead));
-//                left -= toRead;
-//            }
-//        }
-//
-//        checkpoint(State.READ_HEADER);
-//        header.setRawBodyBytes(bodyBytes);
 
         headerManager.put(csid, header);
 
