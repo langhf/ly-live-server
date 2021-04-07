@@ -1,12 +1,12 @@
 package cn.drelang.live.server.rtmp.handler;
 
 import cn.drelang.live.LiveConfig;
+import cn.drelang.live.server.config.Bean;
 import cn.drelang.live.server.exception.OperationNotSupportException;
 import cn.drelang.live.server.format.flv.FLV;
 import cn.drelang.live.server.format.flv.FLVData;
 import cn.drelang.live.server.format.flv.FLVFileBody;
 import cn.drelang.live.server.format.flv.FLVTag;
-import cn.drelang.live.server.rtmp.amf.ECMAArray;
 import cn.drelang.live.server.rtmp.entity.*;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.DataMessage;
@@ -20,8 +20,8 @@ import cn.drelang.live.server.rtmp.message.media.VideoMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetChunkSizeMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
 import cn.drelang.live.server.rtmp.message.protocol.WindowAcknowledgementMessage;
+import cn.drelang.live.server.rtmp.stream.Stream;
 import com.google.common.collect.Maps;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static cn.drelang.live.server.rtmp.entity.Constants.*;
 
@@ -61,6 +62,11 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
      * 录制流到该文件
      */
     private FileOutputStream fileOutputStream;
+
+    /**
+     * only in publisher's connection
+     */
+    private Stream publishStream;
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, RtmpMessage msg) throws Exception {
@@ -198,7 +204,12 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     private void handlePublish(ChannelHandlerContext ctx, RtmpMessage msg) {
         PublishMessage publishMessage = (PublishMessage) msg.getBody();
 
-        appName = publishMessage.getPublishingName();
+        String channelKey = publishMessage.getPublishingName();
+        appName = Bean.APP_CHANNEL_KEY.getIfPresent(channelKey);
+
+        if (appName == null) {
+            // TODO: not allow to publish
+        }
 
         Map<String, Object> infoObject = new HashMap<>(4);
         infoObject.put("level", "status");
@@ -218,11 +229,15 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         responseHeader.setMessageLength(onStatusMessage.outMessageToBytes().length);
 
         ctx.write(Collections.singletonList(new RtmpMessage(responseHeader, onStatusMessage)));
+
+        publishStream = new Stream();
+        publishStream.setAppName(appName);
+        publishStream.setMediaCache(new ConcurrentLinkedQueue<>());
     }
 
     private void handleMetaData(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
         DataMessage dataMessage = (DataMessage) msg.getBody();
-        ECMAArray ecmaArray = dataMessage.getEcmaArray();
+        publishStream.setMetaData(dataMessage);
 
         if (LiveConfig.INSTANCE.isRecordFlvFile()) {
             saveFile(msg);
@@ -233,6 +248,12 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     private void handleVideoData(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
         VideoMessage videoMessage = (VideoMessage) msg.getBody();
 
+        byte[] videoData = videoMessage.outMessageToBytes();
+        byte first = videoData[0];
+        FLVData.Video.FRAME_TYPE frameType = FLVData.Video.FRAME_TYPE.getByCode((byte) ((first & 0xF0) >> 4));
+        if (frameType == FLVData.Video.FRAME_TYPE.KEY_FRAME) {  // cache one frame and later video/audio data util next key frame
+
+        }
         if (LiveConfig.INSTANCE.isRecordFlvFile()) {
             saveFile(msg);
         }

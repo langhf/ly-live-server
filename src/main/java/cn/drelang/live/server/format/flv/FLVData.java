@@ -233,7 +233,7 @@ public class FLVData {
 
         VideoData videoData;
 
-        enum FRAME_TYPE {
+        public enum FRAME_TYPE {
             KEY_FRAME(1, "keyframe(for AVC, a seekable frame)"),
             INTER_FRAME(2, "inter frame(for AVC, anon-seekable frame)"),
             DISPOSABLE_INTER_FRAME(3, "disposable inter frame(H.263only)"),

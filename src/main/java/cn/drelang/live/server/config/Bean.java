@@ -1,7 +1,11 @@
 package cn.drelang.live.server.config;
 
+import cn.drelang.live.server.rtmp.stream.Stream;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -16,7 +20,11 @@ public class Bean {
      */
     public static final Cache<String, String> APP_CHANNEL_KEY;
 
-
+    /**
+     * manage app stream
+     * example: movie -> stream1,  tv -> stream2
+     */
+    public static final HashMap<String, Stream> APP_MANAGER;
 
     private Bean(){}
 
@@ -26,7 +34,7 @@ public class Bean {
                 .maximumSize(10000)
                 .concurrencyLevel(Runtime.getRuntime().availableProcessors())
                 .build();
-
+        APP_MANAGER = new HashMap<>(16);
     }
 
 }
