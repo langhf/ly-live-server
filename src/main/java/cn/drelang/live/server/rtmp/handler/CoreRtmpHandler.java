@@ -13,6 +13,7 @@ import cn.drelang.live.server.rtmp.message.command.DataMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.ConnectMessage;
 import cn.drelang.live.server.rtmp.message.command.netconnection.CreateStreamMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.OnStatusMessage;
+import cn.drelang.live.server.rtmp.message.command.netstream.PlayMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.PublishMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
 import cn.drelang.live.server.rtmp.message.media.AudioMessage;
@@ -94,6 +95,9 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
                 case "deleteStream":
                     handleDeleteStream(ctx, msg);
                     break;
+                case "play":
+                    handlePlay(ctx, msg);
+                    break;
             }
         } else if (msid ==  METADATA_AMF0) {
             handleMetaData(ctx, msg);
@@ -104,6 +108,13 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         } else {
             throw new OperationNotSupportException("msid=" + msid);
         }
+
+        if (LiveConfig.INSTANCE.isRecordFlvFile()) {
+            if (msid == METADATA_AMF0 || msid == AUDIO_MESSAGE || msid == VIDEO_MESSAGE) {
+                saveFile(msg);
+            }
+        }
+
 
         log.debug("handled {}", msg.getBody().getClass().getSimpleName());
     }
@@ -122,9 +133,6 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         // Set Peer Bandwidth
         SetPeerBandwidthMessage spbMessage = new SetPeerBandwidthMessage(2500_000, (byte) 1);
         outs.add(new RtmpMessage(spbMessage.createOutboundHeader(), spbMessage));
-
-        // 注意：由于 RTMP 默认的 Chunk Size 为 128，而此处想要发送几个 RTMP 消息，总长度超过了 128，
-        //      因此要让客户端设置新的 Chunk Size，才能让所有的消息发送过去！
 
         // Set Chunk Size, 此命令含义：告诉对方己方发送 Chunk 的大小，而不是设置对方发送 Chunk 的大小
         SetChunkSizeMessage scsMessage = new SetChunkSizeMessage(128);
@@ -168,16 +176,9 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
             ctx.close();
             return ;
         }
-        // TODO: 检查 channelKey 是否合法
-        releaseStreamOK = true;
     }
 
     private void handleCreateStream(ChannelHandlerContext ctx, RtmpMessage msg) {
-        if (!releaseStreamOK) {
-            ctx.close();
-            return ;
-        }
-
         CreateStreamMessage request = (CreateStreamMessage) msg.getBody();
 
         CreateStreamMessage response = new CreateStreamMessage();
@@ -196,9 +197,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 
         List<RtmpMessage> out = new ArrayList<>(1);
         out.add(new RtmpMessage(responseHeader, response));
-//        ByteBuf buf = ctx.alloc().buffer();
         ctx.write(out);
-//        ReferenceCountUtil.release(out);
     }
 
     private void handlePublish(ChannelHandlerContext ctx, RtmpMessage msg) {
@@ -235,36 +234,43 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         publishStream.setMediaCache(new ConcurrentLinkedQueue<>());
     }
 
-    private void handleMetaData(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
+    private void handleMetaData(ChannelHandlerContext ctx, RtmpMessage msg) {
         DataMessage dataMessage = (DataMessage) msg.getBody();
         publishStream.setMetaData(dataMessage);
-
-        if (LiveConfig.INSTANCE.isRecordFlvFile()) {
-            saveFile(msg);
-        }
-
     }
 
-    private void handleVideoData(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
+    private void handleVideoData(ChannelHandlerContext ctx, RtmpMessage msg) {
         VideoMessage videoMessage = (VideoMessage) msg.getBody();
 
         byte[] videoData = videoMessage.outMessageToBytes();
         byte first = videoData[0];
         FLVData.Video.FRAME_TYPE frameType = FLVData.Video.FRAME_TYPE.getByCode((byte) ((first & 0xF0) >> 4));
-        if (frameType == FLVData.Video.FRAME_TYPE.KEY_FRAME) {  // cache one frame and later video/audio data util next key frame
-
+        // cache one frame and later video/audio data util next key frame
+        if (frameType == FLVData.Video.FRAME_TYPE.KEY_FRAME) {
+            videoMessage.setKeyFrame(true);
+            publishStream.getMediaCache().clear();
         }
+        publishStream.getMediaCache().add(videoMessage);
+    }
+
+    private void handleAudioData(ChannelHandlerContext ctx, RtmpMessage msg) {
+        AudioMessage audioMessage = (AudioMessage) msg.getBody();
+        publishStream.getMediaCache().add(audioMessage);
+    }
+
+    private void handleDeleteStream(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
+        ctx.channel().close();
+
         if (LiveConfig.INSTANCE.isRecordFlvFile()) {
-            saveFile(msg);
+            FLVFileBody.Node node = new FLVFileBody.Node();
+            node.setPreviousTagSize(previousTagSize);
+            FLV.encode(fileOutputStream, node);
+            fileOutputStream.close();
         }
     }
 
-    private void handleAudioData(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
-        AudioMessage audioMessage = (AudioMessage) msg.getBody();
-
-        if (LiveConfig.INSTANCE.isRecordFlvFile()) {
-            saveFile(msg);
-        }
+    private void handlePlay(ChannelHandlerContext ctx, RtmpMessage msg) {
+        PlayMessage playMessage = (PlayMessage) msg.getBody();
     }
 
     private void saveFile(RtmpMessage msg) throws IOException {
@@ -311,17 +317,6 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         FLV.encode(fileOutputStream, node, tagData);
 
         previousTagSize = tagData.length + 11;
-    }
-
-    private void handleDeleteStream(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
-        ctx.channel().close();
-
-        if (LiveConfig.INSTANCE.isRecordFlvFile()) {
-            FLVFileBody.Node node = new FLVFileBody.Node();
-            node.setPreviousTagSize(previousTagSize);
-            FLV.encode(fileOutputStream, node);
-            fileOutputStream.close();
-        }
     }
 
 }

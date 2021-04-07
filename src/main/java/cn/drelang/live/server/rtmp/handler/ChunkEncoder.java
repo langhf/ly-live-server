@@ -34,9 +34,6 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
         int outChunkSize = 128;
         RtmpHeader header = msg.getHeader();
 
-        // wrap header
-        int csid = header.getChunkStreamId();
-
         int msgLen = header.getMessageLength();
         if (msgLen <= outChunkSize) {
             wrapByFmt((byte)0, header, out);
@@ -57,6 +54,20 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
 
     }
 
+    private void wrapByFmt(byte fmt, RtmpHeader header, ByteBuf out) {
+        out.writeBytes(buildBasicHeader(fmt, header.getChunkStreamId()));
+        if (fmt != 3) {
+            out.writeBytes(ByteUtil.convertInt2BytesBE(header.getTimeStamp(), 3));
+            if (fmt != 2) {
+                out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageLength(), 3));
+                out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageTypeId(), 1));
+                if (fmt != 1) {
+                    out.writeBytes(ByteUtil.convertInt2BytesLE(header.getMessageStreamId(), 4));
+                }
+            }
+        }
+    }
+
     private byte[] buildBasicHeader(byte fmt, int csid) {
         byte first = (byte) (fmt << 6);
         byte[] exCsid = null;
@@ -71,21 +82,6 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
             exCsid = ByteUtil.convertInt2BytesBE(csid - 64, 2);
         }
         return exCsid == null ? new byte[]{first} : ByteUtil.mergeByteArray(new byte[]{first}, exCsid);
-    }
-
-    private void wrapByFmt(byte fmt, RtmpHeader header, ByteBuf out) {
-        out.writeBytes(buildBasicHeader(fmt, header.getChunkStreamId()));
-        if (fmt != 3) {
-            out.writeBytes(ByteUtil.convertInt2BytesBE(header.getTimeStamp(), 3));
-            if (fmt != 2) {
-                out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageLength(), 3));
-                out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageTypeId(), 1));
-                if (fmt != 1) {
-                    out.writeBytes(ByteUtil.convertInt2BytesLE(header.getMessageStreamId(), 4));
-                }
-            }
-        }
-
     }
 
 }
