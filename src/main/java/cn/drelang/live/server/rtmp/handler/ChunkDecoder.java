@@ -7,10 +7,10 @@ import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.DataMessage;
 import cn.drelang.live.server.rtmp.message.media.AudioMessage;
 import cn.drelang.live.server.rtmp.message.media.VideoMessage;
+import cn.drelang.live.util.ByteUtil;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ReplayingDecoder;
@@ -115,11 +115,11 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
 
                 }
                 case AUDIO_MESSAGE: {
-                    out.add(new RtmpMessage(header, new AudioMessage(ByteBufUtil.getBytes(buf))));
+                    out.add(new RtmpMessage(header, new AudioMessage(ByteUtil.readAll(buf))));
                     break;
                 }
                 case VIDEO_MESSAGE: {
-                    out.add(new RtmpMessage(header, new VideoMessage(ByteBufUtil.getBytes(buf))));
+                    out.add(new RtmpMessage(header, new VideoMessage(ByteUtil.readAll(buf))));
                     break;
                 }
                 default: ctx.close();

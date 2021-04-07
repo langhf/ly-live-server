@@ -1,5 +1,7 @@
 package cn.drelang.live.util;
 
+import io.netty.buffer.ByteBuf;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -90,6 +92,16 @@ public class ByteUtil {
             idx += i.length;
         }
         return out;
+    }
+
+    public static byte[] readAll(ByteBuf in) {
+        return readAll(in, in.readableBytes());
+    }
+
+    public static byte[] readAll(ByteBuf in, int len) {
+        byte[] r = new byte[len];
+        in.readBytes(r);
+        return r;
     }
 
     public static void main(String[] args) {

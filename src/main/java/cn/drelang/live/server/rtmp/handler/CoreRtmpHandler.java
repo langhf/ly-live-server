@@ -255,39 +255,41 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         RtmpHeader header = msg.getHeader();
         RtmpBody body = msg.getBody();
 
-        FLVData data;
         FLVTag.TAG_TYPE tag_type;
+        byte[] tagData;
         if (body instanceof AudioMessage) {
-            data = FLV.decodeAudio(Unpooled.copiedBuffer(body.outMessageToBytes()), header.getMessageLength());
+            tagData = body.outMessageToBytes();
             tag_type = FLVTag.TAG_TYPE.AUDIO;
         } else if (body instanceof VideoMessage) {
-            data = FLV.decodeVideo(Unpooled.copiedBuffer(body.outMessageToBytes()), header.getMessageLength());
+            tagData = body.outMessageToBytes();
             tag_type = FLVTag.TAG_TYPE.VIDEO;
         } else if (body instanceof DataMessage) {
-            data = new FLVData.Script();
+            FLVData.Script script = new FLVData.Script();
             FLVData.Script.ScriptData scriptData = new FLVData.Script.ScriptData();
-            scriptData.setObjectName("onMetaData");
+            scriptData.setObjectName(((DataMessage) body).getDesc());
             scriptData.setObjectData(((DataMessage) body).getEcmaArray());
-            ((FLVData.Script) data).setObjects(Collections.singletonList(scriptData));
+            script.setObjects(Collections.singletonList(scriptData));
+            tagData = FLV.encodeScript(script);
             tag_type = FLVTag.TAG_TYPE.SCRIPT;
         } else {
-            throw new OperationNotSupportException("unsupported msg " + msg);
+            log.error("unsupported msg " + msg);
+            return ;
         }
 
         FLVTag tag = new FLVTag();
         tag.setType(tag_type);
-        tag.setDataSize(header.getMessageLength());
+        tag.setDataSize(tagData.length);
         tag.setTimeStamp(header.getTimeStamp());
         tag.setTimeStampExtended((byte) 0);
         tag.setStreamId(0);
-        tag.setData(data);
+//        tag.setData(data);  // 此处不赋值 data，避免重复 encode，提高效率
 
         FLVFileBody.Node node = new FLVFileBody.Node();
         node.setPreviousTagSize(previousTagSize);
         node.setTag(tag);
-        FLV.encode(fileOutputStream, node);
+        FLV.encode(fileOutputStream, node, tagData);
 
-        previousTagSize = header.getMessageLength() + 11;
+        previousTagSize = tagData.length + 11;
     }
 
     private void handleDeleteStream(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {

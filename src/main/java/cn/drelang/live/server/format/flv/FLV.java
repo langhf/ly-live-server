@@ -8,7 +8,6 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.font.Script;
 
 import java.io.*;
 import java.nio.MappedByteBuffer;
@@ -16,6 +15,7 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The FLV video file format codec
@@ -191,35 +191,59 @@ public class FLV {
      * @throws IOException IOException
      */
     public static void encode(OutputStream out, FLVFileBody.Node node) throws IOException {
+        out.write(Objects.requireNonNull(encode(node, null)));
+    }
+
+    public static void encode(OutputStream out, FLVFileBody.Node node, byte[] tagData) throws IOException {
+        out.write(Objects.requireNonNull(encode(node, tagData)));
+    }
+
+    /**
+     * encode Node to bytes
+     * @param node to encode node
+     * @param tagData if not null, tag.dataSize = tagData.length
+     * @return encoded bytes
+     */
+    private static byte[] encode(FLVFileBody.Node node, byte[] tagData) {
         FLVTag tag = node.tag;
         ByteBuf buf;
         if (tag == null) {  // 最后一个没有 tag，只有 previousTagSize
             buf = Unpooled.buffer(4);
             buf.writeInt((int)node.previousTagSize);
-            out.write(readAll(buf, buf.readableBytes()));
-            return ;
+            return readAll(buf, buf.readableBytes());
         }
 
         buf = Unpooled.buffer(tag.dataSize+15);
         buf.writeInt((int)node.previousTagSize);
         buf.writeByte(tag.type.getType());
-        buf.writeMedium(tag.dataSize);
+        if (tagData != null) {
+            buf.writeMedium(tagData.length);
+        } else {
+            buf.writeMedium(tag.dataSize);
+        }
         buf.writeMedium(tag.timeStamp);
         buf.writeByte(tag.timeStampExtended);
         buf.writeMedium(tag.streamId);
 
-        FLVData data = tag.data;
-        if (data instanceof FLVData.Video) {
-            buf.writeBytes(encodeVideo((FLVData.Video) data));
-        } else if (data instanceof FLVData.Audio) {
-            buf.writeBytes(encodeAudio((FLVData.Audio) data));
-        } else if (data instanceof FLVData.Script) {
-            buf.writeBytes(encodeScript((FLVData.Script) data));
-        } else {
-            LOG.error("unsupported type {}", tag.type);
+        if (tagData != null) {
+            buf.writeBytes(tagData);
+            return readAll(buf, buf.readableBytes());
         }
 
-        out.write(readAll(buf, buf.readableBytes()));
+        FLVData data = tag.data;
+        byte[] bytes;
+        if (data instanceof FLVData.Video) {
+            bytes = encodeVideo((FLVData.Video) data);
+        } else if (data instanceof FLVData.Audio) {
+            bytes = encodeAudio((FLVData.Audio) data);
+        } else if (data instanceof FLVData.Script) {
+            bytes = encodeScript((FLVData.Script) data);
+        } else {
+            LOG.error("unsupported type {}", tag.type);
+            return new byte[0];
+        }
+        buf.writeBytes(bytes);
+        return readAll(buf, buf.readableBytes());
     }
 
     public static void encodeFLVHeader(OutputStream out) throws IOException {
