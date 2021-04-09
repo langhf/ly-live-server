@@ -7,6 +7,8 @@ import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.server.rtmp.message.command.DataMessage;
 import cn.drelang.live.server.rtmp.message.media.AudioMessage;
 import cn.drelang.live.server.rtmp.message.media.VideoMessage;
+import cn.drelang.live.server.rtmp.message.protocol.WindowAcknowledgementMessage;
+import cn.drelang.live.server.rtmp.message.protocol.userControl.UserControlMessage;
 import cn.drelang.live.util.ByteUtil;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -108,11 +110,14 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
                     out.add(new RtmpMessage(header, DataMessage.createInstance(buf)));
                     break;
                 }
-                case SHARED_OBJECT_AMF0: {
-
+                case ACKNOWLEDGEMENT_WINDOW_SIZE: {
+                    out.add(new RtmpMessage(header, new WindowAcknowledgementMessage(buf.readInt())));
+                    break;
                 }
-                case AGGREGATE_MESSAGE: {
-
+                case USER_CONTROL_MESSAGE: {
+                    short type = buf.readShort();
+                    out.add(new RtmpMessage(header, UserControlMessage.createInstanceByType(type, buf)));
+                    break;
                 }
                 case AUDIO_MESSAGE: {
                     out.add(new RtmpMessage(header, new AudioMessage(ByteUtil.readAll(buf))));
@@ -121,6 +126,11 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
                 case VIDEO_MESSAGE: {
                     out.add(new RtmpMessage(header, new VideoMessage(ByteUtil.readAll(buf))));
                     break;
+                }
+                case SHARED_OBJECT_AMF0:
+                case AGGREGATE_MESSAGE: {
+                    log.error("unsupported type {}", header.getMessageTypeId());
+                    ctx.close();
                 }
                 default: ctx.close();
             }
@@ -159,6 +169,10 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
         header.setFmt(fmt);
 
         if (fmt == 3) {
+            // fmt == 3 的两种用法，一种是继续传 fmt == 0 剩下的 chunk，另外一种是复用前面 chunk 的 msg length
+            if (header.getLeftToRead() == 0) {
+                header.setLeftToRead(header.getMessageLength());
+            }
             return header;
         }
 
@@ -182,7 +196,7 @@ public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
             timestampDelta = (int)in.readUnsignedInt();
         }
 
-        if (fmt == 0) { // fmt = 0 时，是决定时间戳
+        if (fmt == 0) { // fmt = 0 时，是绝对时间戳
             header.setTimeStamp(timestampDelta);
         } else {
             header.setTimeStamp(timestampDelta + header.getTimeStamp());

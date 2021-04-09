@@ -17,10 +17,12 @@ import cn.drelang.live.server.rtmp.message.command.netstream.PlayMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.PublishMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
 import cn.drelang.live.server.rtmp.message.media.AudioMessage;
+import cn.drelang.live.server.rtmp.message.media.MediaMessage;
 import cn.drelang.live.server.rtmp.message.media.VideoMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetChunkSizeMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
 import cn.drelang.live.server.rtmp.message.protocol.WindowAcknowledgementMessage;
+import cn.drelang.live.server.rtmp.message.protocol.userControl.*;
 import cn.drelang.live.server.rtmp.stream.Stream;
 import com.google.common.collect.Maps;
 import io.netty.channel.ChannelHandlerContext;
@@ -105,6 +107,10 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
             handleAudioData(ctx, msg);
         } else if (msid == VIDEO_MESSAGE) {
             handleVideoData(ctx, msg);
+        } else if (msid == USER_CONTROL_MESSAGE) {
+            handleUserControlMessage(ctx, msg);
+        } else if (msid == ACKNOWLEDGEMENT_WINDOW_SIZE){
+            handleWindowAcknowledgementSize(ctx, msg);
         } else {
             throw new OperationNotSupportException("msid=" + msid);
         }
@@ -261,7 +267,7 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     private void handleDeleteStream(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
         ctx.channel().close();
 
-        if (LiveConfig.INSTANCE.isRecordFlvFile()) {
+        if (LiveConfig.INSTANCE.isRecordFlvFile() && fileOutputStream != null) {
             FLVFileBody.Node node = new FLVFileBody.Node();
             node.setPreviousTagSize(previousTagSize);
             FLV.encode(fileOutputStream, node);
@@ -269,8 +275,39 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         }
     }
 
+    private void handleUserControlMessage(ChannelHandlerContext ctx, RtmpMessage msg) {
+        UserControlMessage userControlMessage = (UserControlMessage) msg.getBody();
+        if (userControlMessage instanceof SetBufferLengthMessage) {
+
+        } else if (userControlMessage instanceof PingRequestMessage) {
+            PingResponseMessage pingResponseMessage = new PingResponseMessage();
+            pingResponseMessage.setTimeStamp(System.currentTimeMillis());
+            ctx.write(Collections.singletonList(pingResponseMessage));
+        } else if (userControlMessage instanceof PingResponseMessage) {
+            return ;
+        }
+    }
+
     private void handlePlay(ChannelHandlerContext ctx, RtmpMessage msg) {
         PlayMessage playMessage = (PlayMessage) msg.getBody();
+        List<RtmpMessage> out = new ArrayList<>();
+
+        StreamBeginMessage streamBeginMessage = new StreamBeginMessage();
+        streamBeginMessage.setStreamId(0);
+
+        RtmpHeader header = new RtmpHeader();
+        header.setChunkStreamId(2);
+        header.setTimeStamp(0);
+        header.setMessageLength(streamBeginMessage.outMessageLength());
+        header.setMessageTypeId(streamBeginMessage.outBoundMessageTypeId());
+        header.setMessageStreamId(streamBeginMessage.outMessageStreamId());
+
+        out.add(new RtmpMessage(header, streamBeginMessage));
+    }
+
+    private void handleWindowAcknowledgementSize(ChannelHandlerContext ctx, RtmpMessage msg) {
+        // TODO: 待实现
+        return ;
     }
 
     private void saveFile(RtmpMessage msg) throws IOException {

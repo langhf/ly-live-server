@@ -30,7 +30,7 @@ public abstract class ProtocolControlMessage implements RtmpBody {
     }
 
     /**
-     * 出站消息长度
+     * 出站消息长度，字节数
      */
     public abstract int outMessageLength();
 
@@ -44,7 +44,7 @@ public abstract class ProtocolControlMessage implements RtmpBody {
         header.setTimeStamp(0);
         header.setMessageLength(outMessageLength());
         header.setMessageTypeId(outBoundMessageTypeId());
-        header.setMessageStreamId(0);
+        header.setMessageStreamId(outMessageStreamId());
         return header;
     }
 
