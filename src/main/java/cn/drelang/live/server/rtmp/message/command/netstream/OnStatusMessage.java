@@ -2,10 +2,12 @@ package cn.drelang.live.server.rtmp.message.command.netstream;
 
 import cn.drelang.live.server.exception.OperationNotSupportException;
 import cn.drelang.live.server.rtmp.amf.AMF0;
+import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 import cn.drelang.live.server.rtmp.message.command.CommandMessage;
 import cn.drelang.live.util.ByteUtil;
 import io.netty.buffer.ByteBuf;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -78,6 +80,32 @@ public class OnStatusMessage extends CommandMessage {
     @Override
     public void continueDecode(ByteBuf in) {
         throw new OperationNotSupportException("OnStatusMessage direction is: server to client, not support continueDecode.");
+    }
+
+    public static OnStatusMessage createInstance(String level, String code, String desc) {
+        return  createInstance(level, code, desc, null);
+    }
+
+    public static OnStatusMessage createInstance(String level, String code, String desc, Object commandObject) {
+        Map<String, Object> infoObject = new HashMap<>(4);
+        infoObject.put("level", level);
+        infoObject.put("code", code);
+        infoObject.put("description", desc);
+
+        OnStatusMessage res = new OnStatusMessage();
+        res.setCommandObject(commandObject);
+        res.setInfoObject(infoObject);
+        return res;
+    }
+
+    public static RtmpHeader createOutHeader(OnStatusMessage message) {
+        RtmpHeader header = new RtmpHeader();
+        header.setChunkStreamId(8);
+        header.setTimeStamp(0);
+        header.setMessageLength(message.outMessageToBytes().length);
+        header.setMessageTypeId(MESSAGE_TYPE_ID);
+        header.setMessageStreamId(1);
+        return header;
     }
 }
 

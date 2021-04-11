@@ -21,12 +21,14 @@ import cn.drelang.live.server.rtmp.entity.RtmpHeader;
 
 public abstract class ProtocolControlMessage implements RtmpBody {
 
+    public static final byte OUT_MESSAGE_STREAM_ID = 0x00;
+
     public byte outChunkStreamId() {
         return 0x02;
     }
 
     public byte outMessageStreamId() {
-        return 0x00;
+        return OUT_MESSAGE_STREAM_ID;
     }
 
     /**

@@ -31,7 +31,7 @@ public class SetBufferLengthMessage extends UserControlMessage{
     }
 
     @Override
-    public byte[] outMessageToBytes() {
+    byte[] continueEncode() {
         ByteBuf out = Unpooled.buffer(outMessageLength());
         out.writeInt(streamId);
         out.writeInt(bufferLength);
@@ -44,7 +44,7 @@ public class SetBufferLengthMessage extends UserControlMessage{
     }
 
     @Override
-    public int outMessageLength() {
+    int additionOutMessageLength() {
         return 8;
     }
 }

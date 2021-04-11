@@ -27,7 +27,7 @@ public class StreamBeginMessage extends UserControlMessage{
     }
 
     @Override
-    public byte[] outMessageToBytes() {
+    byte[] continueEncode() {
         return ByteUtil.convertInt2BytesBE(streamId, 4);
     }
 
@@ -37,7 +37,7 @@ public class StreamBeginMessage extends UserControlMessage{
     }
 
     @Override
-    public int outMessageLength() {
+    int additionOutMessageLength() {
         return 4;
     }
 }

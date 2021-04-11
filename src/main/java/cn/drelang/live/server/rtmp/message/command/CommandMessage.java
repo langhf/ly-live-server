@@ -26,6 +26,8 @@ import java.util.Map;
 @Data
 public abstract class CommandMessage implements RtmpCommandMessage {
 
+    public static final byte MESSAGE_TYPE_ID = Constants.COMMAND_MESSAGE_AMF0;
+
     private static final Map<String, Class<? extends CommandMessage>> COMMAND_MAP;
 
     static {
@@ -78,7 +80,7 @@ public abstract class CommandMessage implements RtmpCommandMessage {
     }
 
     public byte outBoundMessageTypeId() {
-        return Constants.COMMAND_MESSAGE_AMF0;
+        return MESSAGE_TYPE_ID;
     }
 
     @Override
@@ -115,9 +117,6 @@ public abstract class CommandMessage implements RtmpCommandMessage {
             commandMessage.setCommandName(commandName);
             commandMessage.setTransactionID((Double) AMF0.decodeAMF0Type(in));
             commandMessage.continueDecode(in);
-//            if (in.readerIndex() != in.writerIndex()) {
-//                throw new RuntimeException("decode command message error, input bytes not enough!");
-//            }
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(e);
         } catch (Exception e) {

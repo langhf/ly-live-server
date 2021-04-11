@@ -17,7 +17,6 @@ import cn.drelang.live.server.rtmp.message.command.netstream.PlayMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.PublishMessage;
 import cn.drelang.live.server.rtmp.message.command.netstream.ReleaseStreamMessage;
 import cn.drelang.live.server.rtmp.message.media.AudioMessage;
-import cn.drelang.live.server.rtmp.message.media.MediaMessage;
 import cn.drelang.live.server.rtmp.message.media.VideoMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetChunkSizeMessage;
 import cn.drelang.live.server.rtmp.message.protocol.SetPeerBandwidthMessage;
@@ -210,9 +209,11 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         PublishMessage publishMessage = (PublishMessage) msg.getBody();
 
         String channelKey = publishMessage.getPublishingName();
-        appName = Bean.APP_CHANNEL_KEY.getIfPresent(channelKey);
+        appName = Bean.APP_CHANNEL_KEY.get(channelKey);
 
         if (appName == null) {
+            log.error("appName={} not exists", appName);
+            ctx.close();
             // TODO: not allow to publish
         }
 
@@ -238,6 +239,8 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         publishStream = new Stream();
         publishStream.setAppName(appName);
         publishStream.setMediaCache(new ConcurrentLinkedQueue<>());
+
+        Bean.APP_MANAGER.putIfAbsent(appName, publishStream);
     }
 
     private void handleMetaData(ChannelHandlerContext ctx, RtmpMessage msg) {
@@ -289,20 +292,61 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     }
 
     private void handlePlay(ChannelHandlerContext ctx, RtmpMessage msg) {
-        PlayMessage playMessage = (PlayMessage) msg.getBody();
         List<RtmpMessage> out = new ArrayList<>();
 
+        PlayMessage playMessage = (PlayMessage) msg.getBody();
+
+        String appName = playMessage.getStreamName();
+
+        if (!Bean.APP_MANAGER.containsKey(appName)) {
+            StreamDryMessage streamDryMessage = new StreamDryMessage();
+            streamDryMessage.setStreamId(msg.getHeader().getMessageStreamId());
+
+            RtmpHeader header = UserControlMessage.createOutHeader(streamDryMessage);
+            out.add(new RtmpMessage(header, streamDryMessage));
+            ctx.write(out);
+            ctx.close();
+            return ;
+        }
+
+        // stream is recorded 1
+        StreamIsRecordedMessage streamIsRecordedMessage = new StreamIsRecordedMessage();
+        streamIsRecordedMessage.setStreamId(1);
+        RtmpHeader header = UserControlMessage.createOutHeader(streamIsRecordedMessage);
+        out.add(new RtmpMessage(header, streamIsRecordedMessage));
+
+        // stream begin
         StreamBeginMessage streamBeginMessage = new StreamBeginMessage();
-        streamBeginMessage.setStreamId(0);
+        streamBeginMessage.setStreamId(1);
+        RtmpHeader header1 = UserControlMessage.createOutHeader(streamBeginMessage);
+        out.add(new RtmpMessage(header1, streamBeginMessage));
 
-        RtmpHeader header = new RtmpHeader();
-        header.setChunkStreamId(2);
-        header.setTimeStamp(0);
-        header.setMessageLength(streamBeginMessage.outMessageLength());
-        header.setMessageTypeId(streamBeginMessage.outBoundMessageTypeId());
-        header.setMessageStreamId(streamBeginMessage.outMessageStreamId());
+        // onStatus - NetStream.Play.Reset
+        OnStatusMessage resetMessage = OnStatusMessage.createInstance("status",
+                "NetStream.Play.Reset", "Playing and resetting stream.");
+        RtmpHeader header2 = OnStatusMessage.createOutHeader(resetMessage);
+        out.add(new RtmpMessage(header2, resetMessage));
 
-        out.add(new RtmpMessage(header, streamBeginMessage));
+        // onStatus - NetStream.Play.Start
+        OnStatusMessage playStartMessage = OnStatusMessage.createInstance("status",
+                "NetStream.Play.Start", "Started playing stream.");
+        RtmpHeader header3 = OnStatusMessage.createOutHeader(playStartMessage);
+        out.add(new RtmpMessage(header3, playStartMessage));
+
+        // onStatus - NetStream.Data.Start
+        OnStatusMessage dataStartMessage = OnStatusMessage.createInstance("status",
+                "NetStream.Data.Start", "Started playing stream.");
+        RtmpHeader header4 = OnStatusMessage.createOutHeader(dataStartMessage);
+        out.add(new RtmpMessage(header4, dataStartMessage));
+
+        // onMetaData
+        DataMessage onMetaData = new DataMessage();
+        onMetaData.setDesc("onMetaData");
+        onMetaData.setEcmaArray(Bean.APP_MANAGER.get(appName).getMetaData().getEcmaArray());
+        RtmpHeader header5 = DataMessage.createOutHeader(onMetaData);
+        out.add(new RtmpMessage(header5, onMetaData));
+
+        ctx.write(out);
     }
 
     private void handleWindowAcknowledgementSize(ChannelHandlerContext ctx, RtmpMessage msg) {

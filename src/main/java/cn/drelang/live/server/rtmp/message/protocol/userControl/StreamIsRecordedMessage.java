@@ -1,6 +1,7 @@
 package cn.drelang.live.server.rtmp.message.protocol.userControl;
 
 import cn.drelang.live.util.ByteUtil;
+import lombok.Data;
 
 /**
  * The server sends this event to notify the client that the stream is a recorded stream. The 4 bytes event data
@@ -10,9 +11,10 @@ import cn.drelang.live.util.ByteUtil;
  * @date 2021/4/9 22:49
  */
 
+@Data
 public class StreamIsRecordedMessage extends UserControlMessage{
 
-    Integer streamId;
+    public Integer streamId;
 
     public StreamIsRecordedMessage() {
         super((short) 4);
@@ -23,7 +25,7 @@ public class StreamIsRecordedMessage extends UserControlMessage{
     }
 
     @Override
-    public byte[] outMessageToBytes() {
+    byte[] continueEncode() {
         return ByteUtil.convertInt2BytesBE(streamId, 4);
     }
 
@@ -33,7 +35,7 @@ public class StreamIsRecordedMessage extends UserControlMessage{
     }
 
     @Override
-    public int outMessageLength() {
+    int additionOutMessageLength() {
         return 4;
     }
 }

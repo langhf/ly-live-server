@@ -39,16 +39,7 @@ import static cn.drelang.live.server.rtmp.entity.Constants.*;
 @Slf4j
 public class ChunkDecoder extends ReplayingDecoder<ChunkDecoder.State> {
 
-    final int CHUNK_SIZE = 1024;
     final int DEFAULT_CHUNK_SIZE = 128;
-    /**
-     * 管理 stream id
-     */
-    public final Cache<Integer, RtmpHeader> STREAM_MANAGER =  CacheBuilder.newBuilder()
-            .initialCapacity(30)
-            .maximumSize(Integer.MAX_VALUE)
-            .concurrencyLevel(Runtime.getRuntime().availableProcessors())
-            .build();
 
     /**
      * 管理 ReplayingDecoder 的状态，避免重复读取一个消息

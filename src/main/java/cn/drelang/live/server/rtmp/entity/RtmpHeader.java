@@ -42,7 +42,6 @@ public class RtmpHeader {
      */
     private int timeStamp;
 
-
     /**
      * 消息长度
      */

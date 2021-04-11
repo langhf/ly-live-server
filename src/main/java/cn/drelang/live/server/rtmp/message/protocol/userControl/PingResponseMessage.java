@@ -25,7 +25,7 @@ public class PingResponseMessage extends UserControlMessage{
     }
 
     @Override
-    public byte[] outMessageToBytes() {
+    byte[] continueEncode() {
         return ByteUtil.convertInt2BytesBE(timeStamp.intValue(), 4);
     }
 
@@ -35,7 +35,7 @@ public class PingResponseMessage extends UserControlMessage{
     }
 
     @Override
-    public int outMessageLength() {
+    int additionOutMessageLength() {
         return 4;
     }
 }

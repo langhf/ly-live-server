@@ -18,7 +18,7 @@ public class Bean {
     /**
      * 管理推拉流 channel
      */
-    public static final Cache<String, String> APP_CHANNEL_KEY;
+    public static final HashMap<String, String> APP_CHANNEL_KEY;
 
     /**
      * manage app stream
@@ -29,11 +29,7 @@ public class Bean {
     private Bean(){}
 
     static {
-        APP_CHANNEL_KEY = CacheBuilder.newBuilder()
-                .initialCapacity(10)
-                .maximumSize(10000)
-                .concurrencyLevel(Runtime.getRuntime().availableProcessors())
-                .build();
+        APP_CHANNEL_KEY = new HashMap<>(16);
         APP_MANAGER = new HashMap<>(16);
     }
 

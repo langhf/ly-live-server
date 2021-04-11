@@ -83,7 +83,7 @@ public class CoreHttpHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
         Map<String, String> params = parseParams(ss[1]);
         String appName = params.get("app");
-        String channelKey = Bean.APP_CHANNEL_KEY.getIfPresent(appName);
+        String channelKey = Bean.APP_CHANNEL_KEY.get(appName);
 
 
         if (channelKey == null) {

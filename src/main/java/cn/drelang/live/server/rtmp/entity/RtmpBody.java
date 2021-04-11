@@ -27,5 +27,16 @@ public interface RtmpBody {
      * 转成人类可读字符串
      */
     String toReadableString();
+
+    /**
+     * TODO: 根据消息类型创建消息头
+     */
+//    RtmpHeader createOutHeader();
+
+    /**
+     * 根据消息类型创建完整的输出消息，包含消息头
+     * @return
+     */
+//    RtmpMessage createWholeOutMessage();
 }
 
