@@ -21,5 +21,6 @@ public abstract class MediaMessage implements RtmpBody {
     public byte[] outMessageToBytes() {
         return rawMediaData;
     }
+
 }
 

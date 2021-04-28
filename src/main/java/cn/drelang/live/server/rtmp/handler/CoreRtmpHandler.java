@@ -46,11 +46,6 @@ import static cn.drelang.live.server.rtmp.entity.Constants.*;
 public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 
     /**
-     * releaseStream 命令是否通过
-     */
-    private boolean releaseStreamOK;
-
-    /**
      * app name
      */
     private String appName;
@@ -119,7 +114,6 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
                 saveFile(msg);
             }
         }
-
 
         log.debug("handled {}", msg.getBody().getClass().getSimpleName());
     }
@@ -238,7 +232,6 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
 
         publishStream = new Stream();
         publishStream.setAppName(appName);
-        publishStream.setMediaCache(new ConcurrentLinkedQueue<>());
 
         Bean.APP_MANAGER.putIfAbsent(appName, publishStream);
     }
@@ -249,22 +242,11 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
     }
 
     private void handleVideoData(ChannelHandlerContext ctx, RtmpMessage msg) {
-        VideoMessage videoMessage = (VideoMessage) msg.getBody();
-
-        byte[] videoData = videoMessage.outMessageToBytes();
-        byte first = videoData[0];
-        FLVData.Video.FRAME_TYPE frameType = FLVData.Video.FRAME_TYPE.getByCode((byte) ((first & 0xF0) >> 4));
-        // cache one frame and later video/audio data util next key frame
-        if (frameType == FLVData.Video.FRAME_TYPE.KEY_FRAME) {
-            videoMessage.setKeyFrame(true);
-            publishStream.getMediaCache().clear();
-        }
-        publishStream.getMediaCache().add(videoMessage);
+        publishStream.addMedia(msg);
     }
 
     private void handleAudioData(ChannelHandlerContext ctx, RtmpMessage msg) {
-        AudioMessage audioMessage = (AudioMessage) msg.getBody();
-        publishStream.getMediaCache().add(audioMessage);
+        publishStream.addMedia(msg);
     }
 
     private void handleDeleteStream(ChannelHandlerContext ctx, RtmpMessage msg) throws IOException {
@@ -339,14 +321,18 @@ public class CoreRtmpHandler extends SimpleChannelInboundHandler<RtmpMessage> {
         RtmpHeader header4 = OnStatusMessage.createOutHeader(dataStartMessage);
         out.add(new RtmpMessage(header4, dataStartMessage));
 
+        Stream stream = Bean.APP_MANAGER.get(appName);
         // onMetaData
         DataMessage onMetaData = new DataMessage();
         onMetaData.setDesc("onMetaData");
-        onMetaData.setEcmaArray(Bean.APP_MANAGER.get(appName).getMetaData().getEcmaArray());
+        onMetaData.setEcmaArray(stream.getMetaData().getEcmaArray());
         RtmpHeader header5 = DataMessage.createOutHeader(onMetaData);
         out.add(new RtmpMessage(header5, onMetaData));
-
         ctx.write(out);
+
+        // add this channel to Stream
+        stream.addSubscriber(ctx.channel());
+
     }
 
     private void handleWindowAcknowledgementSize(ChannelHandlerContext ctx, RtmpMessage msg) {

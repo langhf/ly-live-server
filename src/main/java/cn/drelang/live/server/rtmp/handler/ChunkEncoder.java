@@ -21,6 +21,8 @@ import java.util.List;
 @Slf4j
 public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
 
+    long timeStamp = System.currentTimeMillis();
+
     @Override
     protected void encode(ChannelHandlerContext ctx, List<RtmpMessage> messages, ByteBuf out) throws Exception {
         ByteBuf r = Unpooled.buffer();
@@ -57,7 +59,8 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
     private void wrapByFmt(byte fmt, RtmpHeader header, ByteBuf out) {
         out.writeBytes(buildBasicHeader(fmt, header.getChunkStreamId()));
         if (fmt != 3) {
-            out.writeBytes(ByteUtil.convertInt2BytesBE(header.getTimeStamp(), 3));
+            // TODO: 可能要使用 extended timestamp
+            out.writeBytes(ByteUtil.convertInt2BytesBE((int) getCurrentTimeStamp(), 3));
             if (fmt != 2) {
                 out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageLength(), 3));
                 out.writeBytes(ByteUtil.convertInt2BytesBE(header.getMessageTypeId(), 1));
@@ -82,6 +85,10 @@ public class ChunkEncoder extends MessageToByteEncoder<List<RtmpMessage>> {
             exCsid = ByteUtil.convertInt2BytesBE(csid - 64, 2);
         }
         return exCsid == null ? new byte[]{first} : ByteUtil.mergeByteArray(new byte[]{first}, exCsid);
+    }
+
+    private long getCurrentTimeStamp() {
+        return System.currentTimeMillis() - timeStamp;
     }
 
 }

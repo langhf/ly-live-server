@@ -182,15 +182,15 @@ public class FLVData {
             }
         }
 
-        static class AudioData {
+        public static class AudioData {
             byte[] data;
         }
 
-        static class AACAudioData extends AudioData {
+        public static class AACAudioData extends AudioData {
 
             AACPacketType packetType;
 
-            enum AACPacketType {
+            public enum AACPacketType {
                 HEAD(0, "AAC sequence header"),
                 RAW(1, "AAC RAW"),
                 ;
@@ -198,6 +198,10 @@ public class FLVData {
                 final byte code;
 
                 final String desc;
+
+                public byte getCode() {
+                    return code;
+                }
 
                 AACPacketType(int code, String desc) {
                     this.code = (byte)code;
@@ -248,6 +252,10 @@ public class FLVData {
             FRAME_TYPE(int code, String desc) {
                 this.code = (byte)code;
                 this.desc = desc;
+            }
+
+            public byte getCode() {
+                return code;
             }
 
             public static FRAME_TYPE getByCode(byte code) {
@@ -323,7 +331,7 @@ public class FLVData {
 
             int compositionTime;
 
-            enum AVCPacketType {
+            public enum AVCPacketType {
                 HEAD(0, "AVC sequence header"),
                 NALU(1, "AVC NALU"),
                 END(2, "AVC end of sequence(lower level NALU sequence ender is not required or supported"),
@@ -332,6 +340,10 @@ public class FLVData {
                 final byte code;
 
                 final String desc;
+
+                public byte getCode() {
+                    return code;
+                }
 
                 AVCPacketType(int code, String desc) {
                     this.code = (byte)code;
